@@ -1,16 +1,25 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Use Gemini 3 Flash for efficient summarization tasks
+// Initialization helper to ensure fresh key access from environment variables
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+/**
+ * Generates a concise summary and study tips for a chapter based on file names.
+ * Uses 'gemini-3-flash-preview' for efficient text processing.
+ */
 export async function summarizeChapter(chapterName: string, files: string[]) {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `I have a study chapter called "${chapterName}" which contains these files: ${files.join(', ')}. 
-      Provide a 3-bullet point summary of what this chapter likely covers and a "Quick Tip" for studying it. 
-      Also, calculate a confidence score from 0 to 100 based on how descriptive the file names are for accurately guessing the content.
-      Keep the text concise (under 100 words).`,
+      contents: [{
+        parts: [{
+          text: `I have a study chapter called "${chapterName}" which contains these files: ${files.join(', ')}. 
+          Provide a 3-bullet point summary of what this chapter likely covers and a "Quick Tip" for studying it. 
+          Also, calculate a confidence score from 0 to 100 based on how descriptive the file names are for accurately guessing the content.
+          Keep the response concise.`
+        }]
+      }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -19,15 +28,15 @@ export async function summarizeChapter(chapterName: string, files: string[]) {
             summary: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
-              description: "Three bullet points about the chapter likely content."
+              description: "Three high-level bullet points about the probable content."
             },
             studyTip: {
               type: Type.STRING,
-              description: "A single piece of study advice."
+              description: "A single piece of actionable study advice."
             },
             confidenceScore: {
               type: Type.NUMBER,
-              description: "A value from 0 to 100 indicating the model's confidence in the summary."
+              description: "Percentage of confidence in the summary (0-100)."
             }
           },
           required: ["summary", "studyTip", "confidenceScore"]
@@ -35,23 +44,31 @@ export async function summarizeChapter(chapterName: string, files: string[]) {
       }
     });
 
-    return JSON.parse(response.text || '{}');
+    const text = response.text;
+    if (!text) throw new Error("Empty response from AI");
+    return JSON.parse(text);
   } catch (error) {
     console.error("Gemini AI summarizing error:", error);
     return null;
   }
 }
 
-// Generate multiple choice questions from text content
+/**
+ * Generates multiple-choice questions from educational content.
+ * Uses 'gemini-3-pro-preview' for advanced reasoning and high-quality question drafting.
+ */
 export async function generateMCQs(content: string, fileName: string, count: number = 5) {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
-      contents: `Generate a high-quality study test based on the following material: "${content}" from file "${fileName}".
-      Provide exactly ${count} multiple-choice questions. 
-      Each question must have 4 options.
-      Include a brief explanation for why the correct answer is right.`,
+      contents: [{
+        parts: [{
+          text: `Generate a high-quality study test based on the following material: "${content}" from file "${fileName}".
+          Provide exactly ${count} multiple-choice questions. 
+          Each question must have 4 options and include a detailed explanation for the correct answer.`
+        }]
+      }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -68,7 +85,7 @@ export async function generateMCQs(content: string, fileName: string, count: num
               },
               correctAnswer: { 
                 type: Type.INTEGER, 
-                description: "The 0-based index of the correct option." 
+                description: "Zero-based index of the correct option." 
               },
               explanation: { type: Type.STRING }
             },
@@ -78,7 +95,9 @@ export async function generateMCQs(content: string, fileName: string, count: num
       }
     });
 
-    return JSON.parse(response.text || '[]');
+    const text = response.text;
+    if (!text) throw new Error("Empty response from AI");
+    return JSON.parse(text);
   } catch (error) {
     console.error("Gemini AI test generation error:", error);
     return null;

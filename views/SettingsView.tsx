@@ -12,13 +12,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ isDarkMode, onToggleDarkMod
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Settings</h1>
+        <h1 className="text-3xl font-bold mb-2 text-slate-900 dark:text-white">Settings</h1>
         <p className="text-slate-500">Configure your workspace and manage storage.</p>
       </div>
 
       <div className="bg-white dark:bg-[#1a2632] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-lg font-bold mb-1">Appearance</h2>
+          <h2 className="text-lg font-bold mb-1 text-slate-900 dark:text-white">Appearance</h2>
           <p className="text-sm text-slate-500">Customize how EduVault looks for you.</p>
         </div>
         <div className="p-6 flex items-center justify-between">
@@ -27,13 +27,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ isDarkMode, onToggleDarkMod
               <span className="material-symbols-outlined">{isDarkMode ? 'dark_mode' : 'light_mode'}</span>
             </div>
             <div>
-              <p className="font-bold">Dark Mode</p>
+              <p className="font-bold text-slate-900 dark:text-white">Dark Mode</p>
               <p className="text-sm text-slate-500">Switch between light and dark themes.</p>
             </div>
           </div>
           <button 
             onClick={onToggleDarkMode}
             className={`w-12 h-6 rounded-full relative transition-colors ${isDarkMode ? 'bg-primary' : 'bg-slate-300'}`}
+            aria-label="Toggle dark mode"
           >
             <div className={`absolute top-1 size-4 bg-white rounded-full transition-all ${isDarkMode ? 'left-7' : 'left-1'}`} />
           </button>
@@ -42,13 +43,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ isDarkMode, onToggleDarkMod
 
       <div className="bg-white dark:bg-[#1a2632] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-lg font-bold mb-1">Storage & Data</h2>
+          <h2 className="text-lg font-bold mb-1 text-slate-900 dark:text-white">Storage & Data</h2>
           <p className="text-sm text-slate-500">Monitor your data usage and manage local files.</p>
         </div>
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-bold">Library Stats</p>
+              <p className="font-bold text-slate-900 dark:text-white">Library Stats</p>
               <p className="text-sm text-slate-500">Currently storing {totalFiles} files locally.</p>
             </div>
             <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-bold text-slate-600 dark:text-slate-400">
@@ -72,7 +73,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ isDarkMode, onToggleDarkMod
       </div>
 
       <div className="text-center">
-        <p className="text-xs text-slate-400">EduVault v1.0.4 • Local Storage Build</p>
+        <p className="text-xs text-slate-400">EduVault v1.0.6 • Local Storage Build</p>
       </div>
     </div>
   );
