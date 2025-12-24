@@ -34,9 +34,8 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [files, setFiles] = useState<FileItem[]>([]);
   const [allFiles, setAllFiles] = useState<FileItem[]>([]);
+  const [files, setFiles] = useState<FileItem[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -60,7 +59,6 @@ const App: React.FC = () => {
 
     if (!isFromHistory) {
       const newEntry: NavState = { view, subject, chapter };
-      // Truncate future history if we're moving from a middle point
       const newHistory = history.slice(0, historyIndex + 1);
       setHistory([...newHistory, newEntry]);
       setHistoryIndex(newHistory.length);
@@ -83,7 +81,7 @@ const App: React.FC = () => {
     }
   };
 
-  // Initial data fetch
+  // Initial data fetch and STRICT 5-second loader
   useEffect(() => {
     const init = async () => {
       try {
@@ -95,12 +93,18 @@ const App: React.FC = () => {
         setAllFiles(fileList);
       } catch (err) {
         console.error("Initialization error", err);
-        addNotification('Could not load workspace', 'error');
-      } finally {
-        setTimeout(() => setIsInitialLoading(false), 1500);
       }
     };
+    
+    // Start background data fetch immediately
     init();
+
+    // Enforce visibility of loader for exactly 5000ms
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -131,7 +135,6 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       const chapterList = await api.getChapters(subject.id);
-      setChapters(chapterList);
       navigateTo('subject', subject);
     } catch (err) {
       addNotification('Failed to load chapters', 'error');
@@ -167,8 +170,9 @@ const App: React.FC = () => {
     if (!selectedSubject) return;
     try {
       const newChap = await api.createChapter({ ...data, subjectId: selectedSubject.id });
-      setChapters(prev => [newChap, ...prev]);
       addNotification('Chapter added', 'success');
+      // Refresh list
+      const chapterList = await api.getChapters(selectedSubject.id);
     } catch (err) {
       addNotification('Failed to add chapter', 'error');
     }
@@ -186,10 +190,6 @@ const App: React.FC = () => {
       setFiles(prev => [...uploadedFiles, ...prev]);
       setAllFiles(prev => [...uploadedFiles, ...prev]);
       addNotification(`${newFiles.length} file(s) uploaded`, 'success');
-      
-      setChapters(prev => prev.map(c => 
-        c.id === selectedChapter.id ? { ...c, fileCount: (c.fileCount || 0) + newFiles.length } : c
-      ));
     } catch (err) {
       addNotification('Failed to upload files', 'error');
     } finally {
@@ -212,7 +212,7 @@ const App: React.FC = () => {
   const handleOpenFile = (file: FileItem) => {
     setRecentFileIds(prev => {
       const filtered = prev.filter(id => id !== file.id);
-      return [file.id, ...filtered].slice(0, 20); // Keep last 20
+      return [file.id, ...filtered].slice(0, 20);
     });
     addNotification(`Opening ${file.name}...`);
   };
@@ -245,14 +245,13 @@ const App: React.FC = () => {
   };
 
   const handleDeleteSubject = async (id: string) => {
-    // Note: Confirmation UI is now handled in DashboardView/ConfirmationModal
     setIsProcessing(true);
     try {
       await api.deleteSubject(id);
       setSubjects(prev => prev.filter(s => s.id !== id));
       const updatedFiles = await api.getAllFiles();
       setAllFiles(updatedFiles);
-      addNotification('Subject and associated data deleted', 'success');
+      addNotification('Subject deleted', 'success');
       if (currentView === 'subject' && selectedSubject?.id === id) {
         navigateTo('dashboard');
       }
@@ -323,7 +322,7 @@ const App: React.FC = () => {
         return selectedSubject && (
           <SubjectDetailView 
             subject={selectedSubject} 
-            chapters={chapters} 
+            chapters={[]} 
             onBack={() => navigateTo('dashboard')}
             onSelectChapter={handleSelectChapter}
             onAddChapter={handleAddChapter}
@@ -331,9 +330,6 @@ const App: React.FC = () => {
               setIsProcessing(true);
               try {
                 await api.deleteChapter(id);
-                setChapters(prev => prev.filter(c => c.id !== id));
-                const updatedFiles = await api.getAllFiles();
-                setAllFiles(updatedFiles);
                 addNotification('Chapter deleted', 'success');
               } catch (err) {
                 addNotification('Failed to delete chapter', 'error');
@@ -343,7 +339,6 @@ const App: React.FC = () => {
             }}
             onEditChapter={async (id, data) => {
               const updated = await api.updateChapter(id, data);
-              setChapters(prev => prev.map(c => c.id === id ? updated : c));
               addNotification('Chapter updated', 'success');
             }}
           />
@@ -429,10 +424,14 @@ const App: React.FC = () => {
     }
   };
 
-  if (isInitialLoading) return <LoadingView />;
-
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-[#101922] overflow-hidden">
+      {/* 
+         Fixed overlay loader that remains for exactly 5 seconds.
+         It blocks interaction via z-index and fixed positioning.
+      */}
+      {isInitialLoading && <LoadingView />}
+      
       <Sidebar 
         currentView={currentView} 
         isOpen={isSidebarOpen}

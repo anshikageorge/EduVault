@@ -1,6 +1,9 @@
-import { GoogleGenAI, Type } from "@google/genai";
 
-// Initialization helper to ensure fresh key access from environment variables
+import { GoogleGenAI, Type, Part } from "@google/genai";
+
+/**
+ * Initializes a fresh GoogleGenAI instance using the environment API key.
+ */
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
@@ -17,7 +20,7 @@ export async function summarizeChapter(chapterName: string, files: string[]) {
           text: `I have a study chapter called "${chapterName}" which contains these files: ${files.join(', ')}. 
           Provide a 3-bullet point summary of what this chapter likely covers and a "Quick Tip" for studying it. 
           Also, calculate a confidence score from 0 to 100 based on how descriptive the file names are for accurately guessing the content.
-          Keep the response concise.`
+          Keep the response extremely concise and professional.`
         }]
       }],
       config: {
@@ -55,19 +58,24 @@ export async function summarizeChapter(chapterName: string, files: string[]) {
 
 /**
  * Generates multiple-choice questions from educational content.
+ * Accepts a multimodal 'Part' which can contain text or binary file data (PDF, Images, etc.).
  * Uses 'gemini-3-pro-preview' for advanced reasoning and high-quality question drafting.
  */
-export async function generateMCQs(content: string, fileName: string, count: number = 5) {
+export async function generateMCQs(filePart: Part, fileName: string, count: number = 5) {
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: [{
-        parts: [{
-          text: `Generate a high-quality study test based on the following material: "${content}" from file "${fileName}".
-          Provide exactly ${count} multiple-choice questions. 
-          Each question must have 4 options and include a detailed explanation for the correct answer.`
-        }]
+        parts: [
+          filePart,
+          {
+            text: `Generate a high-quality study test based on the attached material "${fileName}".
+            Provide exactly ${count} multiple-choice questions. 
+            Each question must have 4 options and include a detailed explanation for the correct answer.
+            Ensure the questions cover the core concepts presented in the material.`
+          }
+        ]
       }],
       config: {
         responseMimeType: "application/json",

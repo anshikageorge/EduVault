@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { MCQ } from '../types';
 import { generateMCQs } from '../geminiService';
+import { Part } from '@google/genai';
 
 interface TakeTestViewProps {
   onBack: () => void;
@@ -20,36 +21,60 @@ const TakeTestView: React.FC<TakeTestViewProps> = ({ onBack }) => {
 
   const QUESTION_COUNT_OPTIONS = [5, 10, 20, 25, 30];
 
+  const readFileAsPart = (file: File): Promise<Part> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      // Handle text files differently if needed, though gemini handles most as inlineData
+      const isText = file.type === 'text/plain';
+      
+      reader.onload = () => {
+        const result = reader.result as string;
+        if (isText) {
+          resolve({ text: result });
+        } else {
+          // Extract base64 part
+          const base64Data = result.split(',')[1];
+          resolve({
+            inlineData: {
+              data: base64Data,
+              mimeType: file.type || 'application/octet-stream'
+            }
+          });
+        }
+      };
+      
+      reader.onerror = reject;
+      
+      if (isText) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsDataURL(file);
+      }
+    });
+  };
+
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
     
     setTestState('generating');
     
-    let content = "";
-    if (file.type === 'text/plain') {
-      content = await file.text();
-    } else {
-      // Mocked content for binary files in this demo environment
-      content = `Simulated content from ${file.name}. 
-      Topic: Academic Study Skills and Knowledge retention. 
-      Details: Effective study involves active recall, spaced repetition, and interleaving. 
-      Active recall is better than passive reading. 
-      Interleaving is mixing different subjects during a study session.`;
-    }
-
     try {
-      const generated = await generateMCQs(content, file.name, questionCount);
+      const filePart = await readFileAsPart(file);
+      const generated = await generateMCQs(filePart, file.name, questionCount);
+      
       if (generated && generated.length > 0) {
         setQuestions(generated);
         setUserAnswers(new Array(generated.length).fill(-1));
         setTestState('taking');
       } else {
-        alert("Failed to generate questions. Please try again with different content.");
+        alert("Failed to generate questions. Please try again with a clear document.");
         setTestState('upload');
       }
     } catch (err) {
       console.error(err);
+      alert("Error reading file or generating test.");
       setTestState('upload');
     }
   };
@@ -126,14 +151,14 @@ const TakeTestView: React.FC<TakeTestViewProps> = ({ onBack }) => {
             type="file" 
             ref={fileInputRef} 
             className="hidden" 
-            accept=".pdf,.docx,.pptx,.txt"
+            accept=".pdf,.docx,.pptx,.txt,.png,.jpg,.jpeg"
             onChange={(e) => handleFileUpload(e.target.files)}
           />
           <div className="size-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-6" aria-hidden="true">
             <span className="material-symbols-outlined text-4xl">cloud_upload</span>
           </div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Drop study materials here</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 text-center max-w-sm">AI will generate a practice test based on your file. Supports PDF, DOCX, PPTX, and TXT.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 text-center max-w-sm">AI will analyze your document to generate {questionCount} high-quality questions. Supports PDF, DOCX, Images, and more.</p>
           <button 
             className="bg-primary text-white px-10 py-3.5 rounded-xl font-bold hover:brightness-110 transition-all shadow-lg shadow-primary/20 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-[#101922]"
             aria-label="Browse files on your computer"
@@ -155,8 +180,8 @@ const TakeTestView: React.FC<TakeTestViewProps> = ({ onBack }) => {
             <span className="material-symbols-outlined text-4xl text-primary animate-pulse" aria-hidden="true">psychology</span>
           </div>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Crafting your exam...</h2>
-        <p className="text-slate-500 dark:text-slate-400">Gemini AI is analyzing your materials to generate {questionCount} high-quality questions.</p>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Analyzing your material...</h2>
+        <p className="text-slate-500 dark:text-slate-400">Gemini AI is reading your files to craft {questionCount} personalized questions.</p>
       </div>
     );
   }
