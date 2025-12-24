@@ -19,7 +19,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ isDarkMode, onToggleDarkMod
       <div className="bg-white dark:bg-[#1a2632] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
           <h2 className="text-lg font-bold mb-1 text-slate-900 dark:text-white">Appearance</h2>
-          <p className="text-sm text-slate-500">Customize how EduVault looks for you.</p>
+          <p className="text-sm text-slate-500">Customize how EduVault5 looks for you.</p>
         </div>
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -60,7 +60,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ isDarkMode, onToggleDarkMod
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div>
               <p className="font-bold text-red-500">Reset Workspace</p>
-              <p className="text-sm text-slate-500">Permanently delete all subjects, chapters, and favorites.</p>
+              <p className="text-sm text-slate-500">Permanently delete all subjects, chapters, and favorites from EduVault5.</p>
             </div>
             <button 
               onClick={onClearData}
@@ -73,7 +73,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ isDarkMode, onToggleDarkMod
       </div>
 
       <div className="text-center">
-        <p className="text-xs text-slate-400">EduVault v1.0.6 • Local Storage Build</p>
+        <p className="text-xs text-slate-400">EduVault5 v1.0.6 • Local Storage Build</p>
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <span className="material-symbols-outlined text-xl">school</span>
                 </div>
                 <div>
-                  <h1 className="text-slate-900 dark:text-white text-lg font-bold leading-none tracking-tight">EduVault</h1>
+                  <h1 className="text-slate-900 dark:text-white text-lg font-bold leading-none tracking-tight">EduVault5</h1>
                   <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mt-0.5">Student Portal</p>
                 </div>
               </div>

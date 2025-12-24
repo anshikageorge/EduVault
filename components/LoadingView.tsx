@@ -196,7 +196,7 @@ const LoadingView: React.FC = () => {
       </div>
       
       <div className="mt-16 text-center animate-in fade-in slide-in-from-bottom-8 duration-1000">
-        <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter mb-3">EduVault</h1>
+        <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter mb-3">EduVault5</h1>
         <div className="flex items-center justify-center gap-2 mb-6">
            <span className="size-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
            <span className="size-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>

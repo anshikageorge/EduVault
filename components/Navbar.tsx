@@ -32,7 +32,7 @@ const Navbar: React.FC<NavbarProps> = ({
   
   // Profile State
   const [studentName, setStudentName] = useState(() => {
-    return localStorage.getItem('ev_student_name') || 'Alex Johnson';
+    return localStorage.getItem('ev_student_name') || 'User';
   });
   
   const [studentAvatar, setStudentAvatar] = useState(() => {
