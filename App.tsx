@@ -243,6 +243,25 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteSubject = async (id: string) => {
+    // Note: Confirmation UI is now handled in DashboardView/ConfirmationModal
+    setIsProcessing(true);
+    try {
+      await api.deleteSubject(id);
+      setSubjects(prev => prev.filter(s => s.id !== id));
+      const updatedFiles = await api.getAllFiles();
+      setAllFiles(updatedFiles);
+      addNotification('Subject and associated data deleted', 'success');
+      if (currentView === 'subject' && selectedSubject?.id === id) {
+        navigateTo('dashboard');
+      }
+    } catch (err) {
+      addNotification('Failed to delete subject', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const filteredSubjects = useMemo(() => {
     if (!searchQuery) return subjects;
     return subjects.filter(s => 
@@ -291,22 +310,7 @@ const App: React.FC = () => {
             subjects={filteredSubjects} 
             onSelectSubject={handleSelectSubject}
             onAddSubject={handleAddSubject}
-            onDeleteSubject={async (id) => {
-              if (window.confirm('Are you sure you want to delete this subject and all its materials?')) {
-                setIsProcessing(true);
-                try {
-                  await api.deleteSubject(id);
-                  setSubjects(prev => prev.filter(s => s.id !== id));
-                  const updatedFiles = await api.getAllFiles();
-                  setAllFiles(updatedFiles);
-                  addNotification('Subject and associated data deleted', 'success');
-                } catch (err) {
-                  addNotification('Failed to delete subject', 'error');
-                } finally {
-                  setIsProcessing(false);
-                }
-              }
-            }}
+            onDeleteSubject={handleDeleteSubject}
             onEditSubject={async (id, data) => {
               const updated = await api.updateSubject(id, data);
               setSubjects(prev => prev.map(s => s.id === id ? updated : s));
@@ -323,17 +327,17 @@ const App: React.FC = () => {
             onSelectChapter={handleSelectChapter}
             onAddChapter={handleAddChapter}
             onDeleteChapter={async (id) => {
-              if (window.confirm('Delete this chapter and its files?')) {
-                setIsProcessing(true);
-                try {
-                  await api.deleteChapter(id);
-                  setChapters(prev => prev.filter(c => c.id !== id));
-                  const updatedFiles = await api.getAllFiles();
-                  setAllFiles(updatedFiles);
-                  addNotification('Chapter deleted', 'success');
-                } finally {
-                  setIsProcessing(false);
-                }
+              setIsProcessing(true);
+              try {
+                await api.deleteChapter(id);
+                setChapters(prev => prev.filter(c => c.id !== id));
+                const updatedFiles = await api.getAllFiles();
+                setAllFiles(updatedFiles);
+                addNotification('Chapter deleted', 'success');
+              } catch (err) {
+                addNotification('Failed to delete chapter', 'error');
+              } finally {
+                setIsProcessing(false);
               }
             }}
             onEditChapter={async (id, data) => {

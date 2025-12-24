@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Subject, Chapter } from '../types';
 import ChapterModal from '../components/ChapterModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface SubjectDetailViewProps {
   subject: Subject;
@@ -14,10 +15,11 @@ interface SubjectDetailViewProps {
 }
 
 const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({ 
-  subject, chapters, onBack, onSelectChapter, onAddChapter, onDeleteChapter, onEditChapter 
+  subject, chapters, onBack, onSelectChapter, onAddChapter, onDeleteChapter, onEditChapter
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
+  const [chapterToDelete, setChapterToDelete] = useState<string | null>(null);
 
   const handleOpenAdd = () => {
     setEditingChapter(null);
@@ -38,6 +40,13 @@ const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({
     setIsModalOpen(false);
   };
 
+  const handleConfirmDelete = () => {
+    if (chapterToDelete) {
+      onDeleteChapter(chapterToDelete);
+      setChapterToDelete(null);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       <ChapterModal 
@@ -45,6 +54,17 @@ const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSubmit}
         initialData={editingChapter}
+      />
+
+      <ConfirmationModal 
+        isOpen={!!chapterToDelete}
+        onClose={() => setChapterToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Chapter"
+        message="Are you sure you want to delete this chapter?"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isDestructive={true}
       />
 
       <nav className="flex items-center gap-2 mb-2 text-sm text-slate-500 dark:text-slate-400">
@@ -56,15 +76,15 @@ const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({
         <span className="font-medium text-slate-900 dark:text-white">{subject.name}</span>
       </nav>
 
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-2">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white tracking-tight mb-2">{subject.name}</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base">{subject.description}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button 
             onClick={handleOpenAdd}
-            className="bg-primary hover:bg-blue-600 text-white flex items-center justify-center gap-2 px-5 h-10 rounded-lg text-sm font-medium transition-all shadow-sm"
+            className="bg-primary hover:bg-blue-600 text-white flex items-center justify-center gap-2 px-5 h-10 rounded-lg text-sm font-bold transition-all shadow-sm"
           >
             <span className="material-symbols-outlined text-[20px]">add</span>
             <span>New Chapter</span>
@@ -91,7 +111,7 @@ const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({
                   <span className="material-symbols-outlined text-[18px]">edit</span>
                 </button>
                 <button 
-                  onClick={(e) => { e.stopPropagation(); onDeleteChapter(chapter.id); }}
+                  onClick={(e) => { e.stopPropagation(); setChapterToDelete(chapter.id); }}
                   className="p-1.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px]">delete</span>
