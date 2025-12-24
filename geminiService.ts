@@ -1,11 +1,10 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 // Use Gemini 3 Flash for efficient summarization tasks
 export async function summarizeChapter(chapterName: string, files: string[]) {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `I have a study chapter called "${chapterName}" which contains these files: ${files.join(', ')}. 
@@ -46,6 +45,7 @@ export async function summarizeChapter(chapterName: string, files: string[]) {
 // Generate multiple choice questions from text content
 export async function generateMCQs(content: string, fileName: string, count: number = 5) {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: `Generate a high-quality study test based on the following material: "${content}" from file "${fileName}".
