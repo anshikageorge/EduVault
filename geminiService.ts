@@ -1,11 +1,10 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
 // Use Gemini 3 Flash for efficient summarization tasks
 export async function summarizeChapter(chapterName: string, files: string[]) {
-  // Initialize AI client using the direct environment variable for the API key.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -37,10 +36,51 @@ export async function summarizeChapter(chapterName: string, files: string[]) {
       }
     });
 
-    // Access the text property directly from the response object.
     return JSON.parse(response.text || '{}');
   } catch (error) {
     console.error("Gemini AI summarizing error:", error);
+    return null;
+  }
+}
+
+// Generate multiple choice questions from text content
+export async function generateMCQs(content: string, fileName: string, count: number = 5) {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: `Generate a high-quality study test based on the following material: "${content}" from file "${fileName}".
+      Provide exactly ${count} multiple-choice questions. 
+      Each question must have 4 options.
+      Include a brief explanation for why the correct answer is right.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              question: { type: Type.STRING },
+              options: { 
+                type: Type.ARRAY, 
+                items: { type: Type.STRING },
+                minItems: 4,
+                maxItems: 4
+              },
+              correctAnswer: { 
+                type: Type.INTEGER, 
+                description: "The 0-based index of the correct option." 
+              },
+              explanation: { type: Type.STRING }
+            },
+            required: ["question", "options", "correctAnswer", "explanation"]
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text || '[]');
+  } catch (error) {
+    console.error("Gemini AI test generation error:", error);
     return null;
   }
 }

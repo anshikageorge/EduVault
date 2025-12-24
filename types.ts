@@ -34,7 +34,7 @@ export interface FileItem {
   folderId?: string;
   chapterId: string;
   name: string;
-  type: 'pdf' | 'pptx' | 'png' | 'docx' | 'video';
+  type: 'pdf' | 'pptx' | 'png' | 'docx' | 'video' | 'txt';
   dateAdded: string;
   size: string;
   isFavorite?: boolean;
@@ -47,4 +47,11 @@ export interface AppNotification {
   type: 'success' | 'error' | 'info';
 }
 
-export type ViewState = 'dashboard' | 'subject' | 'chapter' | 'settings' | 'favorites' | 'recent';
+export interface MCQ {
+  question: string;
+  options: string[];
+  correctAnswer: number; // index of the correct option
+  explanation: string;
+}
+
+export type ViewState = 'dashboard' | 'subject' | 'chapter' | 'settings' | 'favorites' | 'recent' | 'test';

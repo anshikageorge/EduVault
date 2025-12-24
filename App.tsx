@@ -6,6 +6,7 @@ import DashboardView from './views/DashboardView';
 import SubjectDetailView from './views/SubjectDetailView';
 import ChapterDetailView from './views/ChapterDetailView';
 import SettingsView from './views/SettingsView';
+import TakeTestView from './views/TakeTestView';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import LoadingView from './components/LoadingView';
@@ -405,6 +406,10 @@ const App: React.FC = () => {
             onDeleteFiles={handleDeleteFiles}
           />
         );
+      case 'test':
+        return (
+          <TakeTestView onBack={() => navigateTo('dashboard')} />
+        );
       case 'settings':
         return (
           <SettingsView 
@@ -436,6 +441,7 @@ const App: React.FC = () => {
         onNavigateSettings={() => navigateTo('settings')}
         onNavigateFavorites={() => navigateTo('favorites')}
         onNavigateRecent={() => navigateTo('recent')}
+        onNavigateTest={() => navigateTo('test')}
       />
       
       <div className="flex-1 flex flex-col min-w-0">
