@@ -36,7 +36,7 @@ const Navbar: React.FC<NavbarProps> = ({
   });
   
   const [studentAvatar, setStudentAvatar] = useState(() => {
-    return localStorage.getItem('ev_student_avatar') || USER_IMAGE;
+    return localStorage.getItem('ev_student_avatar') || BOY_AVATAR;
   });
 
   const [isEditingName, setIsEditingName] = useState(false);
@@ -49,8 +49,10 @@ const Navbar: React.FC<NavbarProps> = ({
   const mobileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Generate deterministic index based on date (YYYYMMDD)
     const now = new Date();
-    const dateSeed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+    const dateString = now.getFullYear().toString() + (now.getMonth() + 1).toString().padStart(2, '0') + now.getDate().toString().padStart(2, '0');
+    const dateSeed = parseInt(dateString);
     setDailyQuote(MOTIVATIONAL_QUOTES[dateSeed % MOTIVATIONAL_QUOTES.length]);
   }, []);
 
@@ -147,11 +149,6 @@ const Navbar: React.FC<NavbarProps> = ({
                 <span className="material-symbols-outlined text-[24px]">chevron_right</span>
               </button>
             </div>
-            <div className="hidden md:flex items-center gap-1.5">
-               <div className="size-7 bg-primary rounded-lg flex items-center justify-center text-white shadow-sm">
-                 <span className="material-symbols-outlined text-lg">school</span>
-               </div>
-            </div>
           </div>
 
           <div className="flex-1 max-w-lg hidden sm:block">
@@ -224,22 +221,25 @@ const Navbar: React.FC<NavbarProps> = ({
             <div className="relative" ref={profileRef}>
               <button 
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="size-9 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden border-2 border-slate-100 dark:border-slate-800 shadow-sm bg-cover bg-center hover:border-primary transition-all focus:outline-none" 
-                style={{ backgroundImage: `url('${studentAvatar}')` }}
-              />
+                className="size-9 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden border-2 border-slate-100 dark:border-slate-800 shadow-sm transition-all focus:outline-none flex items-center justify-center" 
+              >
+                <img src={studentAvatar} className="w-full h-full object-cover" alt="Profile" />
+              </button>
 
               {isProfileOpen && (
-                <div className="absolute right-0 mt-3 w-72 bg-white dark:bg-[#1a2632] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-5">
+                <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-[#1a2632] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-6">
                   <div className="flex flex-col items-center text-center gap-4">
-                    <div className="size-16 rounded-full bg-slate-100 dark:bg-slate-800 bg-cover bg-center border-2 border-primary/20 shadow-inner" style={{ backgroundImage: `url('${isEditingName ? tempAvatar : studentAvatar}')` }} />
+                    <div className="size-20 rounded-full bg-slate-50 dark:bg-slate-800 border-2 border-primary/20 shadow-inner overflow-hidden">
+                      <img src={isEditingName ? tempAvatar : studentAvatar} className="w-full h-full object-cover" alt="Avatar" />
+                    </div>
                     
                     <div className="w-full">
                       {isEditingName ? (
                         <div className="flex flex-col gap-4">
                           <div className="text-left">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Student Name</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Edit Name</label>
                             <input 
-                              className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#101922] text-slate-900 dark:text-white focus:border-primary outline-none transition-colors"
+                              className="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#101922] text-slate-900 dark:text-white focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all"
                               value={editNameValue}
                               onChange={(e) => setEditNameValue(e.target.value)}
                               onKeyDown={(e) => e.key === 'Enter' && handleSaveProfile()}
@@ -248,69 +248,71 @@ const Navbar: React.FC<NavbarProps> = ({
                           </div>
 
                           <div className="text-left">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Choose Avatar</label>
-                            <div className="flex gap-3 justify-center">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2.5 ml-1">Choose Icon</label>
+                            <div className="flex gap-4 justify-center">
                               <button 
                                 onClick={() => setTempAvatar(BOY_AVATAR)}
-                                className={`flex flex-col items-center gap-1 group`}
+                                className={`flex flex-col items-center gap-1.5 group`}
                               >
-                                <div className={`size-12 rounded-full bg-slate-50 dark:bg-slate-800 border-2 transition-all p-1 ${tempAvatar === BOY_AVATAR ? 'border-primary ring-2 ring-primary/20 scale-110' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-                                  <img src={BOY_AVATAR} className="w-full h-full" alt="Boy Avatar" />
+                                <div className={`size-14 rounded-full bg-slate-50 dark:bg-slate-800 border-2 transition-all p-1.5 ${tempAvatar === BOY_AVATAR ? 'border-primary ring-4 ring-primary/10 scale-110' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`}>
+                                  <img src={BOY_AVATAR} className="w-full h-full" alt="Boy Icon" />
                                 </div>
-                                <span className={`text-[9px] font-bold uppercase tracking-widest ${tempAvatar === BOY_AVATAR ? 'text-primary' : 'text-slate-400'}`}>Boy</span>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${tempAvatar === BOY_AVATAR ? 'text-primary' : 'text-slate-400'}`}>Boy</span>
                               </button>
                               <button 
                                 onClick={() => setTempAvatar(GIRL_AVATAR)}
-                                className={`flex flex-col items-center gap-1 group`}
+                                className={`flex flex-col items-center gap-1.5 group`}
                               >
-                                <div className={`size-12 rounded-full bg-slate-50 dark:bg-slate-800 border-2 transition-all p-1 ${tempAvatar === GIRL_AVATAR ? 'border-primary ring-2 ring-primary/20 scale-110' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-                                  <img src={GIRL_AVATAR} className="w-full h-full" alt="Girl Avatar" />
+                                <div className={`size-14 rounded-full bg-slate-50 dark:bg-slate-800 border-2 transition-all p-1.5 ${tempAvatar === GIRL_AVATAR ? 'border-primary ring-4 ring-primary/10 scale-110' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`}>
+                                  <img src={GIRL_AVATAR} className="w-full h-full" alt="Girl Icon" />
                                 </div>
-                                <span className={`text-[9px] font-bold uppercase tracking-widest ${tempAvatar === GIRL_AVATAR ? 'text-primary' : 'text-slate-400'}`}>Girl</span>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${tempAvatar === GIRL_AVATAR ? 'text-primary' : 'text-slate-400'}`}>Girl</span>
                               </button>
                             </div>
                           </div>
 
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 pt-2">
                             <button 
                               onClick={handleSaveProfile}
-                              className="flex-1 py-2 text-[11px] font-bold bg-primary text-white rounded-lg shadow-lg shadow-primary/20"
+                              className="flex-1 py-2.5 text-[12px] font-bold bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:brightness-110 active:scale-95 transition-all"
                             >
-                              Save Changes
+                              Save
                             </button>
                             <button 
                               onClick={handleCancelEdit}
-                              className="flex-1 py-2 text-[11px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg"
+                              className="flex-1 py-2.5 text-[12px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
                             >
                               Cancel
                             </button>
                           </div>
                         </div>
                       ) : (
-                        <div>
-                          <h4 className="font-bold text-slate-900 dark:text-white text-lg leading-none">{studentName}</h4>
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1.5">ID: SV-2024-9182</p>
+                        <div className="mb-2">
+                          <h4 className="font-black text-slate-900 dark:text-white text-2xl tracking-tight leading-tight">{studentName}</h4>
                         </div>
                       )}
                     </div>
 
                     {!isEditingName && (
                       <>
-                        <div className="w-full bg-primary/5 dark:bg-primary/10 p-4 rounded-xl border border-primary/10 text-left">
-                          <p className="text-[10px] text-primary uppercase font-black tracking-widest mb-2 flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-[14px]">format_quote</span>
-                            Quote of the Day
+                        <div className="w-full bg-primary/5 dark:bg-primary/10 p-5 rounded-2xl border border-primary/10 text-left relative overflow-hidden group/quote">
+                          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover/quote:opacity-20 transition-opacity">
+                            <span className="material-symbols-outlined text-4xl">format_quote</span>
+                          </div>
+                          <p className="text-[10px] text-primary uppercase font-black tracking-widest mb-2.5 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[16px] icon-filled">tips_and_updates</span>
+                            Daily Motivation
                           </p>
-                          <p className="text-[13px] text-slate-700 dark:text-slate-300 italic font-medium leading-relaxed">
+                          <p className="text-[14px] text-slate-700 dark:text-slate-200 italic font-medium leading-relaxed relative z-10">
                             "{dailyQuote}"
                           </p>
                         </div>
 
                         <button 
                           onClick={() => setIsEditingName(true)}
-                          className="w-full py-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2 border border-slate-100 dark:border-slate-700"
+                          className="w-full py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 group/btn"
                         >
-                          <span className="material-symbols-outlined text-[16px]">manage_accounts</span>
+                          <span className="material-symbols-outlined text-[18px] group-hover/btn:rotate-12 transition-transform">person_edit</span>
                           Edit Profile
                         </button>
                       </>

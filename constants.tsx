@@ -37,8 +37,8 @@ export const MOCK_FILES: FileItem[] = [
 ];
 
 export const LIFESTYLE_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuBPrqRAjBNdrPTTRPG5H9Qo-qPdVQVig5Tbi0XF_R-HJ5aENaOiGLfM9OdMyC18Eh15623BkBhwdg87AJs6Tn96pqXkGFJ6PpwIOxOUwWVJpTRyot78dCixK8POqbjzIeRNzcQ2uD2bMgT8rlOJfEtWL_FTlYW0FIKoGnB9-Rjc_q_8tWD8Yd4YoAimQLYm1rQ5ieLEigWlCmSVgJ4pOlb3GBUkvJiDSyiBIhWNiYqBRrpubSVw2Ca9ywPfXBL9_5Ym8ln7M_-1lvk";
-export const USER_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuCbMZKQH4_JSUmPG3M9HEoKxEcM5vxQ_v9nAR6n8iiqdcQlgJ2FdiG36-20uV7kafVMnUo9KJ9-EAHYWX7UrO1SB1gZg3fmjU_y9YvwrFCCrJi_RsKy7epcddEibJk3GM81pMaH4Z9C20o8wg9eR5H7qBWdM1tUK0NFzEJREwUPsyA7MVeWNTrDwbYauQ8vVQex5zf1rar_lxxKAMz3nVth6BmsMTannIHhE6QKijxe6-Ue0jpF1LEiu5JrNDBOMJMBga0gX14DnME";
+export const USER_IMAGE = "https://api.dicebear.com/7.x/lorelei/svg?seed=Alex&backgroundColor=b6e3f4";
 
-// New Avatar Options
-export const BOY_AVATAR = "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix";
-export const GIRL_AVATAR = "https://api.dicebear.com/7.x/avataaars/svg?seed=Ariel";
+// Smiles Avatar Options - Swapped seeds (Ariel <-> Felix)
+export const BOY_AVATAR = "https://api.dicebear.com/7.x/lorelei/svg?seed=Ariel&backgroundColor=b6e3f4";
+export const GIRL_AVATAR = "https://api.dicebear.com/7.x/lorelei/svg?seed=Felix&backgroundColor=ffafcc";
