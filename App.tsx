@@ -26,16 +26,18 @@ const App: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   
+  // Content State
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [files, setFiles] = useState<FileItem[]>([]);
+  const [allFiles, setAllFiles] = useState<FileItem[]>([]);
+  
   // History Management
   const [history, setHistory] = useState<NavState[]>([{ view: 'dashboard', subject: null, chapter: null }]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [allFiles, setAllFiles] = useState<FileItem[]>([]);
-  const [files, setFiles] = useState<FileItem[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -96,10 +98,8 @@ const App: React.FC = () => {
       }
     };
     
-    // Start background data fetch immediately
     init();
 
-    // Enforce visibility of loader for exactly 5000ms
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
     }, 5000);
@@ -135,6 +135,7 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       const chapterList = await api.getChapters(subject.id);
+      setChapters(chapterList);
       navigateTo('subject', subject);
     } catch (err) {
       addNotification('Failed to load chapters', 'error');
@@ -168,13 +169,15 @@ const App: React.FC = () => {
 
   const handleAddChapter = async (data: { name: string; chapterNumber: number }) => {
     if (!selectedSubject) return;
+    setIsProcessing(true);
     try {
       const newChap = await api.createChapter({ ...data, subjectId: selectedSubject.id });
+      setChapters(prev => [...prev, newChap]);
       addNotification('Chapter added', 'success');
-      // Refresh list
-      const chapterList = await api.getChapters(selectedSubject.id);
     } catch (err) {
       addNotification('Failed to add chapter', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -190,6 +193,13 @@ const App: React.FC = () => {
       setFiles(prev => [...uploadedFiles, ...prev]);
       setAllFiles(prev => [...uploadedFiles, ...prev]);
       addNotification(`${newFiles.length} file(s) uploaded`, 'success');
+      
+      // Update chapter file count in local state
+      setChapters(prev => prev.map(c => 
+        c.id === selectedChapter.id 
+          ? { ...c, fileCount: (c.fileCount || 0) + newFiles.length, lastUpdated: 'Just now' } 
+          : c
+      ));
     } catch (err) {
       addNotification('Failed to upload files', 'error');
     } finally {
@@ -222,6 +232,14 @@ const App: React.FC = () => {
       await api.deleteFile(id);
       setFiles(prev => prev.filter(f => f.id !== id));
       setAllFiles(prev => prev.filter(f => f.id !== id));
+      
+      if (selectedChapter) {
+        setChapters(prev => prev.map(c => 
+          c.id === selectedChapter.id 
+            ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - 1) } 
+            : c
+        ));
+      }
       addNotification('File deleted', 'success');
     } catch (err) {
       addNotification('Failed to delete file', 'error');
@@ -236,6 +254,14 @@ const App: React.FC = () => {
       }
       setFiles(prev => prev.filter(f => !ids.includes(f.id)));
       setAllFiles(prev => prev.filter(f => !ids.includes(f.id)));
+      
+      if (selectedChapter) {
+        setChapters(prev => prev.map(c => 
+          c.id === selectedChapter.id 
+            ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - ids.length) } 
+            : c
+        ));
+      }
       addNotification(`${ids.length} files deleted`, 'success');
     } catch (err) {
       addNotification('Failed to delete some files', 'error');
@@ -322,7 +348,7 @@ const App: React.FC = () => {
         return selectedSubject && (
           <SubjectDetailView 
             subject={selectedSubject} 
-            chapters={[]} 
+            chapters={chapters} 
             onBack={() => navigateTo('dashboard')}
             onSelectChapter={handleSelectChapter}
             onAddChapter={handleAddChapter}
@@ -330,6 +356,7 @@ const App: React.FC = () => {
               setIsProcessing(true);
               try {
                 await api.deleteChapter(id);
+                setChapters(prev => prev.filter(c => c.id !== id));
                 addNotification('Chapter deleted', 'success');
               } catch (err) {
                 addNotification('Failed to delete chapter', 'error');
@@ -338,8 +365,16 @@ const App: React.FC = () => {
               }
             }}
             onEditChapter={async (id, data) => {
-              const updated = await api.updateChapter(id, data);
-              addNotification('Chapter updated', 'success');
+              setIsProcessing(true);
+              try {
+                const updated = await api.updateChapter(id, data);
+                setChapters(prev => prev.map(c => c.id === id ? updated : c));
+                addNotification('Chapter updated', 'success');
+              } catch (err) {
+                addNotification('Failed to update chapter', 'error');
+              } finally {
+                setIsProcessing(false);
+              }
             }}
           />
         );
@@ -350,7 +385,7 @@ const App: React.FC = () => {
             subject={selectedSubject} 
             chapter={selectedChapter} 
             files={files}
-            onBack={() => navigateTo('subject', selectedSubject)}
+            onBack={() => handleSelectSubject(selectedSubject)}
             onToggleFavorite={handleToggleFavorite}
             onOpenFile={handleOpenFile}
             onAddFiles={handleAddFiles}
@@ -426,10 +461,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-[#101922] overflow-hidden">
-      {/* 
-         Fixed overlay loader that remains for exactly 5 seconds.
-         It blocks interaction via z-index and fixed positioning.
-      */}
       {isInitialLoading && <LoadingView />}
       
       <Sidebar 
