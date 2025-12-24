@@ -10,12 +10,25 @@ import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import LoadingView from './components/LoadingView';
 
+interface NavState {
+  view: ViewState;
+  subject: Subject | null;
+  chapter: Chapter | null;
+}
+
 const App: React.FC = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Navigation State
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  
+  // History Management
+  const [history, setHistory] = useState<NavState[]>([{ view: 'dashboard', subject: null, chapter: null }]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
@@ -37,7 +50,39 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Initial data fetch and entrance animation
+  // Unified Navigation Function
+  const navigateTo = useCallback((view: ViewState, subject: Subject | null = null, chapter: Chapter | null = null, isFromHistory = false) => {
+    setCurrentView(view);
+    setSelectedSubject(subject);
+    setSelectedChapter(chapter);
+    setIsSidebarOpen(false);
+
+    if (!isFromHistory) {
+      const newEntry: NavState = { view, subject, chapter };
+      // Truncate future history if we're moving from a middle point
+      const newHistory = history.slice(0, historyIndex + 1);
+      setHistory([...newHistory, newEntry]);
+      setHistoryIndex(newHistory.length);
+    }
+  }, [history, historyIndex]);
+
+  const goBack = () => {
+    if (historyIndex > 0) {
+      const prev = history[historyIndex - 1];
+      setHistoryIndex(historyIndex - 1);
+      navigateTo(prev.view, prev.subject, prev.chapter, true);
+    }
+  };
+
+  const goForward = () => {
+    if (historyIndex < history.length - 1) {
+      const next = history[historyIndex + 1];
+      setHistoryIndex(historyIndex + 1);
+      navigateTo(next.view, next.subject, next.chapter, true);
+    }
+  };
+
+  // Initial data fetch
   useEffect(() => {
     const init = async () => {
       try {
@@ -57,7 +102,6 @@ const App: React.FC = () => {
     init();
   }, []);
 
-  // Sync theme with document class list
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -68,7 +112,6 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  // Persist recent file IDs
   useEffect(() => {
     localStorage.setItem('ev_recent_ids', JSON.stringify(recentFileIds));
   }, [recentFileIds]);
@@ -88,9 +131,7 @@ const App: React.FC = () => {
     try {
       const chapterList = await api.getChapters(subject.id);
       setChapters(chapterList);
-      setSelectedSubject(subject);
-      setCurrentView('subject');
-      setIsSidebarOpen(false); // Close sidebar on mobile navigation
+      navigateTo('subject', subject);
     } catch (err) {
       addNotification('Failed to load chapters', 'error');
     } finally {
@@ -103,8 +144,7 @@ const App: React.FC = () => {
     try {
       const fileList = await api.getFiles(chapter.id);
       setFiles(fileList);
-      setSelectedChapter(chapter);
-      setCurrentView('chapter');
+      navigateTo('chapter', selectedSubject, chapter);
     } catch (err) {
       addNotification('Failed to load files', 'error');
     } finally {
@@ -279,7 +319,7 @@ const App: React.FC = () => {
           <SubjectDetailView 
             subject={selectedSubject} 
             chapters={chapters} 
-            onBack={() => { setCurrentView('dashboard'); setIsSidebarOpen(false); }}
+            onBack={() => navigateTo('dashboard')}
             onSelectChapter={handleSelectChapter}
             onAddChapter={handleAddChapter}
             onDeleteChapter={async (id) => {
@@ -310,7 +350,7 @@ const App: React.FC = () => {
             subject={selectedSubject} 
             chapter={selectedChapter} 
             files={files}
-            onBack={() => setCurrentView('subject')}
+            onBack={() => navigateTo('subject', selectedSubject)}
             onToggleFavorite={handleToggleFavorite}
             onOpenFile={handleOpenFile}
             onAddFiles={handleAddFiles}
@@ -329,7 +369,7 @@ const App: React.FC = () => {
             subject={dummySubject} 
             chapter={dummyFavoritesChapter} 
             files={allFiles.filter(f => f.isFavorite)}
-            onBack={() => setCurrentView('dashboard')}
+            onBack={() => navigateTo('dashboard')}
             onToggleFavorite={handleToggleFavorite}
             onOpenFile={handleOpenFile}
             onDeleteFile={(id) => {
@@ -350,7 +390,7 @@ const App: React.FC = () => {
             subject={dummySubject} 
             chapter={dummyRecentChapter} 
             files={recents}
-            onBack={() => setCurrentView('dashboard')}
+            onBack={() => navigateTo('dashboard')}
             onToggleFavorite={handleToggleFavorite}
             onOpenFile={handleOpenFile}
             onDeleteFile={(id) => {
@@ -380,11 +420,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNavigation = (view: ViewState) => {
-    setCurrentView(view);
-    setIsSidebarOpen(false);
-  };
-
   if (isInitialLoading) return <LoadingView />;
 
   return (
@@ -393,10 +428,10 @@ const App: React.FC = () => {
         currentView={currentView} 
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        onNavigate={() => handleNavigation('dashboard')}
-        onNavigateSettings={() => handleNavigation('settings')}
-        onNavigateFavorites={() => handleNavigation('favorites')}
-        onNavigateRecent={() => handleNavigation('recent')}
+        onNavigate={() => navigateTo('dashboard')}
+        onNavigateSettings={() => navigateTo('settings')}
+        onNavigateFavorites={() => navigateTo('favorites')}
+        onNavigateRecent={() => navigateTo('recent')}
       />
       
       <div className="flex-1 flex flex-col min-w-0">
@@ -406,6 +441,10 @@ const App: React.FC = () => {
           notifications={notifications}
           onClearNotifications={() => setNotifications([])}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onGoBack={goBack}
+          onGoForward={goForward}
+          canGoBack={historyIndex > 0}
+          canGoForward={historyIndex < history.length - 1}
         />
         
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar relative">

@@ -9,9 +9,23 @@ interface NavbarProps {
   notifications: AppNotification[];
   onClearNotifications: () => void;
   onToggleSidebar: () => void;
+  onGoBack: () => void;
+  onGoForward: () => void;
+  canGoBack: boolean;
+  canGoForward: boolean;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ searchQuery, onSearchChange, notifications, onClearNotifications, onToggleSidebar }) => {
+const Navbar: React.FC<NavbarProps> = ({ 
+  searchQuery, 
+  onSearchChange, 
+  notifications, 
+  onClearNotifications, 
+  onToggleSidebar,
+  onGoBack,
+  onGoForward,
+  canGoBack,
+  canGoForward
+}) => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
@@ -80,14 +94,43 @@ const Navbar: React.FC<NavbarProps> = ({ searchQuery, onSearchChange, notificati
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-1 md:gap-0">
+          <div className="flex items-center gap-1 md:gap-4">
             <button 
               onClick={onToggleSidebar}
               className="md:hidden p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors mr-1"
             >
               <span className="material-symbols-outlined">menu</span>
             </button>
-            <div className="md:hidden flex items-center gap-1.5">
+            
+            {/* History Navigation Arrows */}
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={onGoBack}
+                disabled={!canGoBack}
+                className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${
+                  canGoBack 
+                    ? 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800' 
+                    : 'text-slate-300 dark:text-slate-700 cursor-not-allowed'
+                }`}
+                title="Go back"
+              >
+                <span className="material-symbols-outlined text-[24px]">chevron_left</span>
+              </button>
+              <button 
+                onClick={onGoForward}
+                disabled={!canGoForward}
+                className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${
+                  canGoForward 
+                    ? 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800' 
+                    : 'text-slate-300 dark:text-slate-700 cursor-not-allowed'
+                }`}
+                title="Go forward"
+              >
+                <span className="material-symbols-outlined text-[24px]">chevron_right</span>
+              </button>
+            </div>
+
+            <div className="hidden md:flex items-center gap-1.5">
                <div className="size-7 bg-primary rounded-lg flex items-center justify-center text-white shadow-sm">
                  <span className="material-symbols-outlined text-lg">school</span>
                </div>
