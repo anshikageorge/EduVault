@@ -34,7 +34,7 @@ export interface FileItem {
   folderId?: string;
   chapterId: string;
   name: string;
-  type: 'pdf' | 'pptx' | 'png' | 'docx';
+  type: 'pdf' | 'pptx' | 'png' | 'docx' | 'video';
   dateAdded: string;
   size: string;
   isFavorite?: boolean;

@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { ViewState, Subject, Chapter, FileItem, AppNotification } from './types';
-import { MOCK_SUBJECTS, MOCK_CHAPTERS, MOCK_FILES } from './constants';
+import { api } from './apiService';
 import DashboardView from './views/DashboardView';
 import SubjectDetailView from './views/SubjectDetailView';
 import ChapterDetailView from './views/ChapterDetailView';
@@ -12,201 +12,197 @@ import LoadingView from './components/LoadingView';
 
 const App: React.FC = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const saved = localStorage.getItem('ev_notifications');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // Persistent State
-  const [subjects, setSubjects] = useState<Subject[]>(() => {
-    const saved = localStorage.getItem('ev_subjects');
-    return saved ? JSON.parse(saved) : MOCK_SUBJECTS;
-  });
-  
-  const [chapters, setChapters] = useState<Chapter[]>(() => {
-    const saved = localStorage.getItem('ev_chapters');
-    return saved ? JSON.parse(saved) : MOCK_CHAPTERS;
-  });
-  
-  const [files, setFiles] = useState<FileItem[]>(() => {
-    const saved = localStorage.getItem('ev_files');
-    return saved ? JSON.parse(saved) : MOCK_FILES;
-  });
-
-  const [recentFiles, setRecentFiles] = useState<FileItem[]>(() => {
-    const saved = localStorage.getItem('ev_recent');
-    return saved ? JSON.parse(saved) : [];
-  });
-
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [files, setFiles] = useState<FileItem[]>([]);
+  const [allFiles, setAllFiles] = useState<FileItem[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem('ev_theme') === 'dark';
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
   });
 
-  // Initial Loading Timer
+  const [recentFileIds, setRecentFileIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('ev_recent_ids');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Initial data fetch and entrance animation
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInitialLoading(false);
-    }, 5000);
-    return () => clearTimeout(timer);
+    const init = async () => {
+      try {
+        const [subList, fileList] = await Promise.all([
+          api.getSubjects(),
+          api.getAllFiles()
+        ]);
+        setSubjects(subList);
+        setAllFiles(fileList);
+      } catch (err) {
+        console.error("Initialization error", err);
+        addNotification('Could not load workspace', 'error');
+      } finally {
+        setTimeout(() => setIsInitialLoading(false), 1500);
+      }
+    };
+    init();
   }, []);
 
-  // Sync with Local Storage
-  useEffect(() => localStorage.setItem('ev_subjects', JSON.stringify(subjects)), [subjects]);
-  useEffect(() => localStorage.setItem('ev_chapters', JSON.stringify(chapters)), [chapters]);
-  useEffect(() => localStorage.setItem('ev_files', JSON.stringify(files)), [files]);
-  useEffect(() => localStorage.setItem('ev_recent', JSON.stringify(recentFiles)), [recentFiles]);
-  useEffect(() => localStorage.setItem('ev_notifications', JSON.stringify(notifications)), [notifications]);
+  // Sync theme with document class list
   useEffect(() => {
-    localStorage.setItem('ev_theme', isDarkMode ? 'dark' : 'light');
-    if (isDarkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
   }, [isDarkMode]);
 
-  const addNotification = useCallback((text: string, type: 'success' | 'error' | 'info' = 'info') => {
+  // Persist recent file IDs
+  useEffect(() => {
+    localStorage.setItem('ev_recent_ids', JSON.stringify(recentFileIds));
+  }, [recentFileIds]);
+
+  const addNotification = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
     const newNotif: AppNotification = {
       id: Math.random().toString(36).substr(2, 9),
       text,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: 'Just now',
       type
     };
     setNotifications(prev => [newNotif, ...prev]);
-  }, []);
-
-  const clearNotifications = useCallback(() => setNotifications([]), []);
-
-  const navigateToDashboard = useCallback(() => {
-    setCurrentView('dashboard');
-    setSelectedSubject(null);
-    setSelectedChapter(null);
-    setSearchQuery('');
-  }, []);
-
-  const navigateToSubject = useCallback((subject: Subject) => {
-    setSelectedSubject(subject);
-    setCurrentView('subject');
-    setSelectedChapter(null);
-    setSearchQuery('');
-  }, []);
-
-  const navigateToChapter = useCallback((chapter: Chapter) => {
-    setSelectedChapter(chapter);
-    setCurrentView('chapter');
-    setSearchQuery('');
-  }, []);
-
-  const navigateToSettings = useCallback(() => setCurrentView('settings'), []);
-  const navigateToFavorites = useCallback(() => setCurrentView('favorites'), []);
-  const navigateToRecent = useCallback(() => setCurrentView('recent'), []);
-
-  // CRUD Handlers
-  const handleAddSubject = (newSub: Subject) => {
-    setSubjects(prev => [newSub, ...prev]);
-    addNotification(`Subject "${newSub.name}" created.`, 'success');
   };
 
-  const handleDeleteSubject = (id: string) => {
-    if (window.confirm("Delete this subject and all its contents?")) {
-      setSubjects(prev => prev.filter(s => s.id !== id));
-      setChapters(prev => prev.filter(c => c.subjectId !== id));
-      const removedChapters = chapters.filter(c => c.subjectId === id).map(c => c.id);
-      setFiles(prev => prev.filter(f => !removedChapters.includes(f.chapterId)));
-      addNotification("Subject deleted.", 'info');
-      navigateToDashboard();
+  const handleSelectSubject = async (subject: Subject) => {
+    setIsProcessing(true);
+    try {
+      const chapterList = await api.getChapters(subject.id);
+      setChapters(chapterList);
+      setSelectedSubject(subject);
+      setCurrentView('subject');
+      setIsSidebarOpen(false); // Close sidebar on mobile navigation
+    } catch (err) {
+      addNotification('Failed to load chapters', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handleEditSubject = (id: string) => {
-    const subject = subjects.find(s => s.id === id);
-    if (!subject) return;
-    const newName = prompt("Edit Subject Name:", subject.name);
-    if (newName && newName !== subject.name) {
-      setSubjects(prev => prev.map(s => s.id === id ? { ...s, name: newName } : s));
-      addNotification("Subject renamed.", 'success');
+  const handleSelectChapter = async (chapter: Chapter) => {
+    setIsProcessing(true);
+    try {
+      const fileList = await api.getFiles(chapter.id);
+      setFiles(fileList);
+      setSelectedChapter(chapter);
+      setCurrentView('chapter');
+    } catch (err) {
+      addNotification('Failed to load files', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handleAddChapter = (newChap: Chapter) => {
-    setChapters(prev => [newChap, ...prev]);
-    addNotification(`Chapter "${newChap.name}" created.`, 'success');
-  };
-
-  const handleDeleteChapter = (id: string) => {
-    if (window.confirm("Delete this chapter and all its files?")) {
-      setChapters(prev => prev.filter(c => c.id !== id));
-      setFiles(prev => prev.filter(f => f.chapterId !== id));
-      addNotification("Chapter deleted.", 'info');
-      if (selectedSubject) navigateToSubject(selectedSubject);
+  const handleAddSubject = async (data: { name: string; description: string }) => {
+    try {
+      const newSub = await api.createSubject(data);
+      setSubjects(prev => [newSub, ...prev]);
+      addNotification('Subject created successfully', 'success');
+    } catch (err) {
+      addNotification('Failed to create subject', 'error');
     }
   };
 
-  const handleEditChapter = (id: string) => {
-    const chapter = chapters.find(c => c.id === id);
-    if (!chapter) return;
-    const newName = prompt("Edit Chapter Name:", chapter.name);
-    if (newName && newName !== chapter.name) {
-      setChapters(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
-      addNotification("Chapter renamed.", 'success');
+  const handleAddChapter = async (data: { name: string; chapterNumber: number }) => {
+    if (!selectedSubject) return;
+    try {
+      const newChap = await api.createChapter({ ...data, subjectId: selectedSubject.id });
+      setChapters(prev => [newChap, ...prev]);
+      addNotification('Chapter added', 'success');
+    } catch (err) {
+      addNotification('Failed to add chapter', 'error');
     }
   };
 
-  const handleAddFile = (newFile: FileItem) => {
-    setFiles(prev => [newFile, ...prev]);
-    addNotification(`"${newFile.name}" uploaded successfully!`, 'success');
-    setChapters(prev => prev.map(c => c.id === newFile.chapterId ? { ...c, fileCount: c.fileCount + 1, lastUpdated: 'Just now' } : c));
-  };
-
-  const handleDeleteFile = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this file?")) {
-      const file = files.find(f => f.id === id);
-      if (file) {
-        setFiles(prev => prev.filter(f => f.id !== id));
-        setRecentFiles(prev => prev.filter(f => f.id !== id));
-        setChapters(prev => prev.map(c => c.id === file.chapterId ? { ...c, fileCount: Math.max(0, c.fileCount - 1) } : c));
-        addNotification(`"${file.name}" deleted.`, 'info');
+  const handleAddFiles = async (newFiles: File[]) => {
+    if (!selectedChapter) return;
+    setIsProcessing(true);
+    try {
+      const uploadedFiles: FileItem[] = [];
+      for (const file of newFiles) {
+        const uploadedFile = await api.uploadFile(selectedChapter.id, file);
+        uploadedFiles.push(uploadedFile);
       }
+      setFiles(prev => [...uploadedFiles, ...prev]);
+      setAllFiles(prev => [...uploadedFiles, ...prev]);
+      addNotification(`${newFiles.length} file(s) uploaded`, 'success');
+      
+      setChapters(prev => prev.map(c => 
+        c.id === selectedChapter.id ? { ...c, fileCount: (c.fileCount || 0) + newFiles.length } : c
+      ));
+    } catch (err) {
+      addNotification('Failed to upload files', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handleRenameFile = (id: string) => {
-    const file = files.find(f => f.id === id);
+  const handleToggleFavorite = async (id: string) => {
+    const file = allFiles.find(f => f.id === id);
     if (!file) return;
-    const currentName = file.name.split('.').slice(0, -1).join('.');
-    const ext = file.name.split('.').pop();
-    const newBaseName = prompt("Enter new file name:", currentName);
-    if (newBaseName && newBaseName !== currentName) {
-      const newFullName = `${newBaseName}.${ext}`;
-      setFiles(prev => prev.map(f => f.id === id ? { ...f, name: newFullName } : f));
-      addNotification(`File renamed to "${newFullName}".`, 'success');
+    try {
+      const updated = await api.updateFile(id, { isFavorite: !file.isFavorite });
+      setFiles(prev => prev.map(f => f.id === id ? updated : f));
+      setAllFiles(prev => prev.map(f => f.id === id ? updated : f));
+    } catch (err) {
+      addNotification('Action failed', 'error');
     }
-  };
-
-  const handleToggleFavorite = (fileId: string) => {
-    setFiles(prev => prev.map(f => f.id === fileId ? { ...f, isFavorite: !f.isFavorite } : f));
   };
 
   const handleOpenFile = (file: FileItem) => {
-    setRecentFiles(prev => {
-      const filtered = prev.filter(f => f.id !== file.id);
-      return [file, ...filtered].slice(0, 8);
+    setRecentFileIds(prev => {
+      const filtered = prev.filter(id => id !== file.id);
+      return [file.id, ...filtered].slice(0, 20); // Keep last 20
     });
+    addNotification(`Opening ${file.name}...`);
   };
 
-  const handleClearData = () => {
-    if (confirm("Are you sure you want to delete all data? This cannot be undone.")) {
-      setSubjects(MOCK_SUBJECTS);
-      setChapters(MOCK_CHAPTERS);
-      setFiles(MOCK_FILES);
-      setRecentFiles([]);
-      setNotifications([]);
-      navigateToDashboard();
+  const handleDeleteFile = async (id: string) => {
+    try {
+      await api.deleteFile(id);
+      setFiles(prev => prev.filter(f => f.id !== id));
+      setAllFiles(prev => prev.filter(f => f.id !== id));
+      addNotification('File deleted', 'success');
+    } catch (err) {
+      addNotification('Failed to delete file', 'error');
     }
   };
 
-  // Filtered lists for views
+  const handleDeleteFiles = async (ids: string[]) => {
+    setIsProcessing(true);
+    try {
+      for (const id of ids) {
+        await api.deleteFile(id);
+      }
+      setFiles(prev => prev.filter(f => !ids.includes(f.id)));
+      setAllFiles(prev => prev.filter(f => !ids.includes(f.id)));
+      addNotification(`${ids.length} files deleted`, 'success');
+    } catch (err) {
+      addNotification('Failed to delete some files', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const filteredSubjects = useMemo(() => {
     if (!searchQuery) return subjects;
     return subjects.filter(s => 
@@ -215,95 +211,213 @@ const App: React.FC = () => {
     );
   }, [subjects, searchQuery]);
 
-  const filteredChapters = useMemo(() => {
-    if (!selectedSubject) return [];
-    const subjectChapters = chapters.filter(c => c.subjectId === selectedSubject.id);
-    if (!searchQuery) return subjectChapters;
-    return subjectChapters.filter(c => 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [chapters, selectedSubject, searchQuery]);
+  const dummySubject: Subject = {
+    id: 'meta',
+    name: 'Collection',
+    description: 'Your gathered materials',
+    icon: 'folder_special',
+    colorClass: 'bg-primary/10 text-primary',
+    fileCount: 0,
+    lastUpdated: 'Just now'
+  };
 
-  const getFilteredFiles = useCallback((baseFiles: FileItem[]) => {
-    if (!searchQuery) return baseFiles;
-    const lowerQuery = searchQuery.toLowerCase();
-    return baseFiles.filter(f => f.name.toLowerCase().includes(lowerQuery));
-  }, [searchQuery]);
+  const dummyFavoritesChapter: Chapter = {
+    id: 'favs',
+    subjectId: 'meta',
+    name: 'Favorites',
+    chapterNumber: 0,
+    icon: 'star',
+    colorClass: 'bg-amber-50 text-amber-600',
+    fileCount: 0,
+    lastUpdated: 'Just now'
+  };
 
-  if (isInitialLoading) {
-    return <LoadingView />;
-  }
+  const dummyRecentChapter: Chapter = {
+    id: 'recent',
+    subjectId: 'meta',
+    name: 'Recently Viewed',
+    chapterNumber: 0,
+    icon: 'schedule',
+    colorClass: 'bg-blue-50 text-blue-600',
+    fileCount: 0,
+    lastUpdated: 'Just now'
+  };
+
+  const renderView = () => {
+    switch (currentView) {
+      case 'dashboard':
+        return (
+          <DashboardView 
+            subjects={filteredSubjects} 
+            onSelectSubject={handleSelectSubject}
+            onAddSubject={handleAddSubject}
+            onDeleteSubject={async (id) => {
+              if (window.confirm('Are you sure you want to delete this subject and all its materials?')) {
+                setIsProcessing(true);
+                try {
+                  await api.deleteSubject(id);
+                  setSubjects(prev => prev.filter(s => s.id !== id));
+                  const updatedFiles = await api.getAllFiles();
+                  setAllFiles(updatedFiles);
+                  addNotification('Subject and associated data deleted', 'success');
+                } catch (err) {
+                  addNotification('Failed to delete subject', 'error');
+                } finally {
+                  setIsProcessing(false);
+                }
+              }
+            }}
+            onEditSubject={async (id, data) => {
+              const updated = await api.updateSubject(id, data);
+              setSubjects(prev => prev.map(s => s.id === id ? updated : s));
+              addNotification('Subject updated', 'success');
+            }}
+          />
+        );
+      case 'subject':
+        return selectedSubject && (
+          <SubjectDetailView 
+            subject={selectedSubject} 
+            chapters={chapters} 
+            onBack={() => { setCurrentView('dashboard'); setIsSidebarOpen(false); }}
+            onSelectChapter={handleSelectChapter}
+            onAddChapter={handleAddChapter}
+            onDeleteChapter={async (id) => {
+              if (window.confirm('Delete this chapter and its files?')) {
+                setIsProcessing(true);
+                try {
+                  await api.deleteChapter(id);
+                  setChapters(prev => prev.filter(c => c.id !== id));
+                  const updatedFiles = await api.getAllFiles();
+                  setAllFiles(updatedFiles);
+                  addNotification('Chapter deleted', 'success');
+                } finally {
+                  setIsProcessing(false);
+                }
+              }
+            }}
+            onEditChapter={async (id, data) => {
+              const updated = await api.updateChapter(id, data);
+              setChapters(prev => prev.map(c => c.id === id ? updated : c));
+              addNotification('Chapter updated', 'success');
+            }}
+          />
+        );
+      case 'chapter':
+        return selectedSubject && selectedChapter && (
+          <ChapterDetailView 
+            viewMode={currentView}
+            subject={selectedSubject} 
+            chapter={selectedChapter} 
+            files={files}
+            onBack={() => setCurrentView('subject')}
+            onToggleFavorite={handleToggleFavorite}
+            onOpenFile={handleOpenFile}
+            onAddFiles={handleAddFiles}
+            onDeleteFile={(id) => {
+              if (window.confirm('Delete this file?')) {
+                handleDeleteFile(id);
+              }
+            }}
+            onDeleteFiles={handleDeleteFiles}
+          />
+        );
+      case 'favorites':
+        return (
+          <ChapterDetailView 
+            viewMode="favorites"
+            subject={dummySubject} 
+            chapter={dummyFavoritesChapter} 
+            files={allFiles.filter(f => f.isFavorite)}
+            onBack={() => setCurrentView('dashboard')}
+            onToggleFavorite={handleToggleFavorite}
+            onOpenFile={handleOpenFile}
+            onDeleteFile={(id) => {
+              if (window.confirm('Delete this file?')) {
+                handleDeleteFile(id);
+              }
+            }}
+            onDeleteFiles={handleDeleteFiles}
+          />
+        );
+      case 'recent':
+        const recents = recentFileIds
+          .map(id => allFiles.find(f => f.id === id))
+          .filter((f): f is FileItem => !!f);
+        return (
+          <ChapterDetailView 
+            viewMode="recent"
+            subject={dummySubject} 
+            chapter={dummyRecentChapter} 
+            files={recents}
+            onBack={() => setCurrentView('dashboard')}
+            onToggleFavorite={handleToggleFavorite}
+            onOpenFile={handleOpenFile}
+            onDeleteFile={(id) => {
+              if (window.confirm('Delete this file?')) {
+                handleDeleteFile(id);
+              }
+            }}
+            onDeleteFiles={handleDeleteFiles}
+          />
+        );
+      case 'settings':
+        return (
+          <SettingsView 
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+            onClearData={() => {
+              if (window.confirm('This will wipe all local data. Continue?')) {
+                localStorage.clear();
+                window.location.reload();
+              }
+            }}
+            totalFiles={allFiles.length}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  const handleNavigation = (view: ViewState) => {
+    setCurrentView(view);
+    setIsSidebarOpen(false);
+  };
+
+  if (isInitialLoading) return <LoadingView />;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white">
+    <div className="flex h-screen bg-slate-50 dark:bg-[#101922] overflow-hidden">
       <Sidebar 
         currentView={currentView} 
-        onNavigate={navigateToDashboard} 
-        onNavigateSettings={navigateToSettings}
-        onNavigateFavorites={navigateToFavorites}
-        onNavigateRecent={navigateToRecent}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        onNavigate={() => handleNavigation('dashboard')}
+        onNavigateSettings={() => handleNavigation('settings')}
+        onNavigateFavorites={() => handleNavigation('favorites')}
+        onNavigateRecent={() => handleNavigation('recent')}
       />
       
-      <div className="flex-1 flex flex-col h-full relative overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0">
         <Navbar 
-          searchQuery={searchQuery} 
+          searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           notifications={notifications}
-          onClearNotifications={clearNotifications}
+          onClearNotifications={() => setNotifications([])}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
         
-        <main className="flex-1 p-6 lg:p-10 max-w-[1400px] mx-auto w-full">
-          {currentView === 'dashboard' && (
-            <DashboardView 
-              subjects={filteredSubjects}
-              onSelectSubject={navigateToSubject} 
-              onAddSubject={handleAddSubject}
-              onDeleteSubject={handleDeleteSubject}
-              onEditSubject={handleEditSubject}
-            />
-          )}
-          
-          {currentView === 'subject' && selectedSubject && (
-            <SubjectDetailView 
-              subject={selectedSubject} 
-              chapters={filteredChapters}
-              onBack={navigateToDashboard} 
-              onSelectChapter={navigateToChapter}
-              onAddChapter={handleAddChapter}
-              onDeleteChapter={handleDeleteChapter}
-              onEditChapter={handleEditChapter}
-            />
-          )}
-          
-          {(currentView === 'chapter' || currentView === 'favorites' || currentView === 'recent') && (
-            <ChapterDetailView 
-              viewMode={currentView}
-              subject={selectedSubject || { name: 'Library', id: 'lib' } as Subject}
-              chapter={selectedChapter || { name: currentView === 'favorites' ? 'My Favorites' : 'Recent Files', id: 'meta', chapterNumber: 0 } as Chapter}
-              files={getFilteredFiles(
-                currentView === 'favorites' ? files.filter(f => f.isFavorite) :
-                currentView === 'recent' ? recentFiles :
-                files.filter(f => f.chapterId === selectedChapter?.id)
-              )}
-              onBack={navigateToDashboard}
-              onToggleFavorite={handleToggleFavorite}
-              onOpenFile={handleOpenFile}
-              onAddFile={handleAddFile}
-              onDeleteFile={handleDeleteFile}
-              onRenameFile={handleRenameFile}
-            />
-          )}
-
-          {currentView === 'settings' && (
-            <SettingsView 
-              isDarkMode={isDarkMode}
-              onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
-              onClearData={handleClearData}
-              totalFiles={files.length}
-            />
-          )}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar relative">
+          {renderView()}
         </main>
       </div>
+
+      {isProcessing && (
+        <div className="fixed inset-0 z-[300] bg-white/50 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center">
+          <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
     </div>
   );
 };
