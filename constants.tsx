@@ -31,9 +31,36 @@ export const MOCK_FOLDERS: Folder[] = [
 ];
 
 export const MOCK_FILES: FileItem[] = [
-  { id: 'file1', chapterId: 'c1', name: 'Limits_and_Derivatives_Homework.pdf', type: 'pdf', dateAdded: 'Oct 24, 2023', size: '2.4 MB', isFavorite: false },
-  { id: 'file2', chapterId: 'c1', name: 'Continuity_Proofs.pdf', type: 'pdf', dateAdded: 'Oct 23, 2023', size: '1.1 MB', isFavorite: true },
-  { id: 'file3', chapterId: 'c1', name: 'Graph_Visuals.png', type: 'png', dateAdded: 'Oct 22, 2023', size: '3.2 MB', isFavorite: false },
+  { 
+    id: 'file1', 
+    chapterId: 'c1', 
+    name: 'Limits_and_Derivatives_Homework.pdf', 
+    type: 'pdf', 
+    dateAdded: 'Oct 24, 2023', 
+    size: '2.4 MB', 
+    isFavorite: false,
+    url: 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf'
+  },
+  { 
+    id: 'file2', 
+    chapterId: 'c1', 
+    name: 'Continuity_Proofs.pdf', 
+    type: 'pdf', 
+    dateAdded: 'Oct 23, 2023', 
+    size: '1.1 MB', 
+    isFavorite: true,
+    url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+  },
+  { 
+    id: 'file3', 
+    chapterId: 'c1', 
+    name: 'Graph_Visuals.png', 
+    type: 'png', 
+    dateAdded: 'Oct 22, 2023', 
+    size: '3.2 MB', 
+    isFavorite: false,
+    url: 'https://images.unsplash.com/photo-1543286386-713bdd548da4?q=80&w=2070&auto=format&fit=crop'
+  },
 ];
 
 export const LIFESTYLE_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuBPrqRAjBNdrPTTRPG5H9Qo-qPdVQVig5Tbi0XF_R-HJ5aENaOiGLfM9OdMyC18Eh15623BkBhwdg87AJs6Tn96pqXkGFJ6PpwIOxOUwWVJpTRyot78dCixK8POqbjzIeRNzcQ2uD2bMgT8rlOJfEtWL_FTlYW0FIKoGnB9-Rjc_q_8tWD8Yd4YoAimQLYm1rQ5ieLEigWlCmSVgJ4pOlb3GBUkvJiDSyiBIhWNiYqBRrpubSVw2Ca9ywPfXBL9_5Ym8ln7M_-1lvk";

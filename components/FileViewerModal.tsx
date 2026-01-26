@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { FileItem } from '../types';
 
 interface FileViewerModalProps {
@@ -8,10 +8,13 @@ interface FileViewerModalProps {
 }
 
 const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
+  const [hasError, setHasError] = useState(false);
+
   if (!file) return null;
 
   // Determine if the URL is likely a live blob or a real external URL
-  const hasValidUrl = !!file.url && (file.url.startsWith('blob:') || file.url.startsWith('http') || file.url.startsWith('/'));
+  const isBlob = !!file.url && file.url.startsWith('blob:');
+  const isRemote = !!file.url && file.url.startsWith('http');
 
   const handleOpenNewTab = () => {
     if (file.url) {
@@ -20,77 +23,67 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
   };
 
   const renderContent = () => {
-    // If the file is a document but we don't have a real previewable URL (e.g. from mock data)
-    if (!hasValidUrl && (file.type === 'pptx' || file.type === 'docx' || file.type === 'pdf')) {
+    if (hasError) {
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center p-4 md:p-12 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-[#0f172a]">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#1a2632] shadow-2xl rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col min-h-[450px] animate-in zoom-in-95 duration-300">
-            {/* Mock Document Header */}
-            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center gap-5">
-              <div className={`size-16 rounded-2xl flex items-center justify-center shadow-lg ${
-                file.type === 'pdf' ? 'bg-red-500 text-white' : 
-                file.type === 'pptx' ? 'bg-orange-500 text-white' : 
-                'bg-blue-500 text-white'
-              }`}>
-                <span className="material-symbols-outlined text-3xl icon-filled">
-                  {file.type === 'pdf' ? 'picture_as_pdf' : file.type === 'pptx' ? 'slideshow' : 'description'}
-                </span>
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{file.name}</h3>
-                <p className="text-xs text-slate-500 uppercase tracking-widest font-black mt-1">{file.type} Document • {file.size}</p>
-              </div>
-            </div>
-            
-            {/* Mock Content Body */}
-            <div className="flex-1 p-8 flex flex-col justify-center text-center">
-              <div className="mb-6 opacity-20">
-                <span className="material-symbols-outlined text-8xl dark:text-white">auto_stories</span>
-              </div>
-              <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Detailed Preview Unavailable</h4>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 max-w-sm mx-auto leading-relaxed">
-                To protect your privacy, Chrome restricts inline previews for some local file types. Please download or open the file in a new tab to view its contents.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <a
-                  href={file.url}
-                  download={file.name}
-                  className="px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  <span className="material-symbols-outlined">download</span>
-                  Download
-                </a>
-                {file.url && (
-                   <button
-                    onClick={handleOpenNewTab}
-                    className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
-                  >
-                    <span className="material-symbols-outlined">open_in_new</span>
-                    Open in New Tab
-                  </button>
-                )}
-              </div>
-            </div>
+        <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50 dark:bg-slate-900 rounded-2xl">
+          <div className="size-20 bg-amber-50 dark:bg-amber-900/20 text-amber-500 rounded-full flex items-center justify-center mb-6">
+            <span className="material-symbols-outlined text-4xl">warning</span>
           </div>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Preview Blocked</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 max-w-sm mx-auto leading-relaxed">
+            Chrome's security settings are preventing this file from being previewed inside the app. Please open it in a new tab or download it.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={handleOpenNewTab}
+              className="px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:brightness-110 transition-all flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined">open_in_new</span>
+              Open in New Tab
+            </button>
+            <a
+              href={file.url}
+              download={file.name}
+              className="px-6 py-3 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined">download</span>
+              Download
+            </a>
+          </div>
+        </div>
+      );
+    }
+
+    // For Word and PowerPoint, we can use the Google Docs Viewer for remote files
+    if (isRemote && (file.type === 'pptx' || file.type === 'docx')) {
+      const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(file.url!)}&embedded=true`;
+      return (
+        <div className="w-full h-full bg-white rounded-xl overflow-hidden shadow-inner">
+          <iframe
+            src={viewerUrl}
+            className="w-full h-full border-none"
+            title="Document Viewer"
+            onError={() => setHasError(true)}
+          />
         </div>
       );
     }
 
     switch (file.type) {
       case 'pdf':
-        // Use object/embed instead of iframe, which Chrome handles more robustly for PDFs
+        // Object tag is often more reliable than iframe for PDFs in Chrome
         return (
-          <div className="w-full h-full bg-white rounded-xl overflow-hidden shadow-inner flex flex-col">
+          <div className="w-full h-full bg-white rounded-xl overflow-hidden shadow-inner">
             <object
-              data={file.url}
+              data={isBlob ? file.url : `${file.url}#toolbar=0&navpanes=0`}
               type="application/pdf"
               className="w-full h-full"
+              onError={() => setHasError(true)}
             >
               <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-900">
                 <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">picture_as_pdf</span>
-                <h3 className="text-lg font-bold mb-2">Native PDF Viewer Blocked</h3>
-                <p className="text-sm text-slate-500 mb-6">Your browser settings are preventing the PDF from loading inline.</p>
+                <h3 className="text-lg font-bold mb-2">PDF Viewer Issue</h3>
+                <p className="text-sm text-slate-500 mb-6">Your browser cannot render this PDF inline.</p>
                 <button 
                   onClick={handleOpenNewTab}
                   className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-blue-600 transition-all"
@@ -109,6 +102,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
               autoPlay
               className="max-w-full max-h-full"
               src={file.url}
+              onError={() => setHasError(true)}
             >
               Your browser does not support the video tag.
             </video>
@@ -121,10 +115,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
               src={file.url}
               alt={file.name}
               className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=2070';
-              }}
+              onError={() => setHasError(true)}
             />
           </div>
         );
@@ -134,11 +125,11 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
             <p className="whitespace-pre-wrap leading-relaxed">
               --- START OF {file.name.toUpperCase()} ---
               {"\n\n"}
+              {/* In a real app, we would fetch the text content here */}
               This is a text preview for your uploaded file.
               {"\n\n"}
-              [Content generated for simulation purposes]
-              {"\n\n"}
-              The file contains your study notes and key concepts extracted from the course materials.
+              Note: For local .txt files, browsers typically allow viewing them. 
+              If the content isn't visible, please use the "Open in New Tab" button.
             </p>
           </div>
         );
@@ -154,23 +145,24 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
             </div>
             <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">{file.name}</h3>
             <p className="text-slate-500 dark:text-slate-400 mb-10 max-w-md mx-auto leading-relaxed font-medium">
-              This {file.type.toUpperCase()} file needs to be opened in its native application for the best experience.
+              This {file.type.toUpperCase()} file requires its native application or a new tab to be viewed safely.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-sm">
+              <button
+                onClick={handleOpenNewTab}
+                className="w-full px-8 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-3"
+              >
+                <span className="material-symbols-outlined">open_in_new</span>
+                Open to View
+              </button>
               <a
                 href={file.url}
                 download={file.name}
-                className="w-full px-8 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-3"
+                className="w-full px-8 py-4 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-3"
               >
                 <span className="material-symbols-outlined">download</span>
-                Download File
+                Download
               </a>
-              <button 
-                onClick={onClose}
-                className="w-full px-8 py-4 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-              >
-                Close
-              </button>
             </div>
           </div>
         );
@@ -201,15 +193,14 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {file.url && (
-              <button
-                onClick={handleOpenNewTab}
-                className="hidden md:flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
-              >
-                <span className="material-symbols-outlined text-[18px]">open_in_new</span>
-                Pop-out
-              </button>
-            )}
+            <button
+              onClick={handleOpenNewTab}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+              <span className="hidden sm:inline">Open in New Tab</span>
+              <span className="sm:hidden">Open</span>
+            </button>
             <button 
               onClick={onClose}
               className="size-10 flex items-center justify-center hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 rounded-full text-slate-400 transition-all active:scale-90"
@@ -225,12 +216,12 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
         </div>
 
         {/* Action Bar */}
-        {file.url && (
-          <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#1a2632]/50 flex items-center justify-between gap-4">
-            <div className="hidden sm:block">
-               <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">EduVault Safe Viewer</p>
-            </div>
-            <div className="flex gap-3 w-full sm:w-auto">
+        <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#1a2632]/50 flex items-center justify-between gap-4">
+          <div className="hidden sm:block">
+             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">EduVault Safe Viewer</p>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            {file.url && (
               <a
                 href={file.url}
                 download={file.name}
@@ -239,16 +230,16 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
                 <span className="material-symbols-outlined">download</span>
                 Download
               </a>
-              <button
-                onClick={handleOpenNewTab}
-                className="sm:hidden flex-1 flex items-center justify-center gap-2 px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl text-sm font-black transition-all"
-              >
-                <span className="material-symbols-outlined">open_in_new</span>
-                Pop-out
-              </button>
-            </div>
+            )}
+            <button
+              onClick={handleOpenNewTab}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl text-sm font-black transition-all"
+            >
+              <span className="material-symbols-outlined">open_in_new</span>
+              Full Screen
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
