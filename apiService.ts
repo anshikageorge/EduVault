@@ -47,10 +47,9 @@ export const api = {
     
     // Cleanup linked chapters and files
     const chapters = getDB('ev_chapters', []);
-    const filteredChapters = chapters.filter((c: Chapter) => c.subjectId !== id);
-    setDB('ev_chapters', filteredChapters);
-    
     const chapterIds = chapters.filter((c: Chapter) => c.subjectId === id).map((c: Chapter) => c.id);
+    setDB('ev_chapters', chapters.filter((c: Chapter) => c.subjectId !== id));
+    
     const files = getDB('ev_files', []);
     setDB('ev_files', files.filter((f: FileItem) => !chapterIds.includes(f.chapterId)));
   },
@@ -103,16 +102,18 @@ export const api = {
     return files.filter((f: FileItem) => f.chapterId === chapterId);
   },
   uploadFile: async (chapterId: string, file: File): Promise<FileItem> => {
-    await delay(LATENCY + 600);
+    await delay(LATENCY + 200);
     const files = getDB('ev_files', []);
     const ext = file.name.split('.').pop()?.toLowerCase();
-    let type: 'pdf' | 'pptx' | 'png' | 'docx' | 'video' = 'pdf';
+    let type: 'pdf' | 'pptx' | 'png' | 'docx' | 'video' | 'txt' = 'pdf';
     
     if (ext === 'pptx') type = 'pptx';
     else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext || '')) type = 'png';
     else if (ext === 'docx') type = 'docx';
     else if (['mp4', 'mov', 'webm', 'avi'].includes(ext || '')) type = 'video';
+    else if (ext === 'txt') type = 'txt';
 
+    const tempUrl = URL.createObjectURL(file);
     const newFile: FileItem = {
       id: Math.random().toString(36).substr(2, 9),
       chapterId,
@@ -120,16 +121,15 @@ export const api = {
       type,
       dateAdded: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
-      isFavorite: false
+      isFavorite: false,
+      url: tempUrl
     };
     setDB('ev_files', [newFile, ...files]);
 
-    // Update chapter file count
     const chapters = getDB('ev_chapters', []);
-    const updatedChapters = chapters.map((c: Chapter) => 
+    setDB('ev_chapters', chapters.map((c: Chapter) => 
       c.id === chapterId ? { ...c, fileCount: (c.fileCount || 0) + 1, lastUpdated: 'Just now' } : c
-    );
-    setDB('ev_chapters', updatedChapters);
+    ));
 
     return newFile;
   },
@@ -148,11 +148,30 @@ export const api = {
 
     setDB('ev_files', files.filter((f: FileItem) => f.id !== fileId));
 
-    // Update chapter file count
     const chapters = getDB('ev_chapters', []);
-    const updatedChapters = chapters.map((c: Chapter) => 
+    setDB('ev_chapters', chapters.map((c: Chapter) => 
       c.id === fileToDelete.chapterId ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - 1) } : c
-    );
-    setDB('ev_chapters', updatedChapters);
+    ));
+  },
+  deleteFiles: async (fileIds: string[]): Promise<void> => {
+    await delay(LATENCY);
+    const files = getDB('ev_files', []);
+    const filesToDelete = files.filter((f: FileItem) => fileIds.includes(f.id));
+    if (filesToDelete.length === 0) return;
+
+    // Remove files
+    setDB('ev_files', files.filter((f: FileItem) => !fileIds.includes(f.id)));
+
+    // Update counts for all affected chapters
+    const chapters = getDB('ev_chapters', []);
+    const chapterMap: Record<string, number> = {};
+    filesToDelete.forEach(f => {
+      chapterMap[f.chapterId] = (chapterMap[f.chapterId] || 0) + 1;
+    });
+
+    setDB('ev_chapters', chapters.map((c: Chapter) => {
+      const reduction = chapterMap[c.id] || 0;
+      return reduction > 0 ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - reduction) } : c;
+    }));
   }
 };

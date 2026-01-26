@@ -84,7 +84,7 @@ const App: React.FC = () => {
     }
   };
 
-  // Initial data fetch and loader
+  // Initial data fetch
   useEffect(() => {
     const init = async () => {
       try {
@@ -103,7 +103,7 @@ const App: React.FC = () => {
 
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
-    }, 3500); // Reduced slightly for better feel
+    }, 3500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -225,47 +225,62 @@ const App: React.FC = () => {
       return [file.id, ...filtered].slice(0, 20);
     });
     setViewingFile(file);
-    addNotification(`Opening ${file.name}...`);
   };
 
   const handleDeleteFile = async (id: string) => {
+    const fileToDelete = allFiles.find(f => f.id === id);
+    if (!fileToDelete) return;
+
+    setIsProcessing(true);
     try {
       await api.deleteFile(id);
+      
+      // Update local sets
       setFiles(prev => prev.filter(f => f.id !== id));
       setAllFiles(prev => prev.filter(f => f.id !== id));
       
-      if (selectedChapter) {
-        setChapters(prev => prev.map(c => 
-          c.id === selectedChapter.id 
-            ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - 1) } 
-            : c
-        ));
-      }
+      // Update chapter counts for immediate reflection in subject view
+      setChapters(prev => prev.map(c => 
+        c.id === fileToDelete.chapterId 
+          ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - 1) } 
+          : c
+      ));
+      
       addNotification('File deleted', 'success');
     } catch (err) {
       addNotification('Failed to delete file', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleDeleteFiles = async (ids: string[]) => {
+    const filesToDelete = allFiles.filter(f => ids.includes(f.id));
+    if (filesToDelete.length === 0) return;
+
     setIsProcessing(true);
     try {
-      for (const id of ids) {
-        await api.deleteFile(id);
-      }
+      await api.deleteFiles(ids);
+      
+      // Update local sets
       setFiles(prev => prev.filter(f => !ids.includes(f.id)));
       setAllFiles(prev => prev.filter(f => !ids.includes(f.id)));
       
-      if (selectedChapter) {
-        setChapters(prev => prev.map(c => 
-          c.id === selectedChapter.id 
-            ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - ids.length) } 
-            : c
-        ));
-      }
+      // Compute reduction per chapter
+      const reductionMap: Record<string, number> = {};
+      filesToDelete.forEach(f => {
+        reductionMap[f.chapterId] = (reductionMap[f.chapterId] || 0) + 1;
+      });
+
+      // Update chapter counts
+      setChapters(prev => prev.map(c => {
+        const reduction = reductionMap[c.id] || 0;
+        return reduction > 0 ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - reduction) } : c;
+      }));
+
       addNotification(`${ids.length} files deleted`, 'success');
     } catch (err) {
-      addNotification('Failed to delete some files', 'error');
+      addNotification('Failed to delete files', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -276,14 +291,37 @@ const App: React.FC = () => {
     try {
       await api.deleteSubject(id);
       setSubjects(prev => prev.filter(s => s.id !== id));
+      
+      // Clear out deleted files from state
       const updatedFiles = await api.getAllFiles();
       setAllFiles(updatedFiles);
+      
       addNotification('Subject deleted', 'success');
       if (currentView === 'subject' && selectedSubject?.id === id) {
         navigateTo('dashboard');
       }
     } catch (err) {
       addNotification('Failed to delete subject', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteChapter = async (id: string) => {
+    setIsProcessing(true);
+    try {
+      await api.deleteChapter(id);
+      
+      // Update local chapters
+      setChapters(prev => prev.filter(c => c.id !== id));
+      
+      // Clear out orphaned files from state
+      setAllFiles(prev => prev.filter(f => f.chapterId !== id));
+      setFiles(prev => prev.filter(f => f.chapterId !== id));
+      
+      addNotification('Chapter deleted', 'success');
+    } catch (err) {
+      addNotification('Failed to delete chapter', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -353,18 +391,7 @@ const App: React.FC = () => {
             onBack={() => navigateTo('dashboard')}
             onSelectChapter={handleSelectChapter}
             onAddChapter={handleAddChapter}
-            onDeleteChapter={async (id) => {
-              setIsProcessing(true);
-              try {
-                await api.deleteChapter(id);
-                setChapters(prev => prev.filter(c => c.id !== id));
-                addNotification('Chapter deleted', 'success');
-              } catch (err) {
-                addNotification('Failed to delete chapter', 'error');
-              } finally {
-                setIsProcessing(false);
-              }
-            }}
+            onDeleteChapter={handleDeleteChapter}
             onEditChapter={async (id, data) => {
               setIsProcessing(true);
               try {
@@ -391,7 +418,7 @@ const App: React.FC = () => {
             onOpenFile={handleOpenFile}
             onAddFiles={handleAddFiles}
             onDeleteFile={(id) => {
-              if (window.confirm('Delete this file?')) {
+              if (window.confirm('Delete this file permanently?')) {
                 handleDeleteFile(id);
               }
             }}
@@ -409,7 +436,7 @@ const App: React.FC = () => {
             onToggleFavorite={handleToggleFavorite}
             onOpenFile={handleOpenFile}
             onDeleteFile={(id) => {
-              if (window.confirm('Delete this file?')) {
+              if (window.confirm('Delete this file permanently?')) {
                 handleDeleteFile(id);
               }
             }}
@@ -430,7 +457,7 @@ const App: React.FC = () => {
             onToggleFavorite={handleToggleFavorite}
             onOpenFile={handleOpenFile}
             onDeleteFile={(id) => {
-              if (window.confirm('Delete this file?')) {
+              if (window.confirm('Delete this file permanently?')) {
                 handleDeleteFile(id);
               }
             }}
