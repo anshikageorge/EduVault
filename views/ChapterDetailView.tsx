@@ -361,6 +361,16 @@ const ChapterDetailView: React.FC<ChapterDetailViewProps> = ({
                       <td className="py-3 px-4 text-xs font-medium text-slate-600 dark:text-slate-400 hidden md:table-cell text-right">{file.size}</td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1 sm:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                          <a
+                            href={file.url}
+                            download={file.name}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 rounded-full text-slate-400 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            title="Download original file"
+                            aria-label={`Download ${file.name}`}
+                          >
+                            <span className="material-symbols-outlined text-[18px]">download</span>
+                          </a>
                           <button 
                             onClick={(e) => { e.stopPropagation(); onToggleFavorite(file.id); }}
                             className={`p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 ${file.isFavorite ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'}`}

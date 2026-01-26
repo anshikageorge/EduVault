@@ -6,10 +6,10 @@ import DashboardView from './views/DashboardView';
 import SubjectDetailView from './views/SubjectDetailView';
 import ChapterDetailView from './views/ChapterDetailView';
 import SettingsView from './views/SettingsView';
-import TakeTestView from './views/TakeTestView';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import LoadingView from './components/LoadingView';
+import FileViewerModal from './components/FileViewerModal';
 
 interface NavState {
   view: ViewState;
@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [viewingFile, setViewingFile] = useState<FileItem | null>(null);
   
   // Content State
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -83,7 +84,7 @@ const App: React.FC = () => {
     }
   };
 
-  // Initial data fetch and STRICT 5-second loader
+  // Initial data fetch and loader
   useEffect(() => {
     const init = async () => {
       try {
@@ -102,7 +103,7 @@ const App: React.FC = () => {
 
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
-    }, 5000);
+    }, 3500); // Reduced slightly for better feel
 
     return () => clearTimeout(timer);
   }, []);
@@ -194,7 +195,6 @@ const App: React.FC = () => {
       setAllFiles(prev => [...uploadedFiles, ...prev]);
       addNotification(`${newFiles.length} file(s) uploaded`, 'success');
       
-      // Update chapter file count in local state
       setChapters(prev => prev.map(c => 
         c.id === selectedChapter.id 
           ? { ...c, fileCount: (c.fileCount || 0) + newFiles.length, lastUpdated: 'Just now' } 
@@ -224,6 +224,7 @@ const App: React.FC = () => {
       const filtered = prev.filter(id => id !== file.id);
       return [file.id, ...filtered].slice(0, 20);
     });
+    setViewingFile(file);
     addNotification(`Opening ${file.name}...`);
   };
 
@@ -436,10 +437,6 @@ const App: React.FC = () => {
             onDeleteFiles={handleDeleteFiles}
           />
         );
-      case 'test':
-        return (
-          <TakeTestView onBack={() => navigateTo('dashboard')} />
-        );
       case 'settings':
         return (
           <SettingsView 
@@ -471,7 +468,6 @@ const App: React.FC = () => {
         onNavigateSettings={() => navigateTo('settings')}
         onNavigateFavorites={() => navigateTo('favorites')}
         onNavigateRecent={() => navigateTo('recent')}
-        onNavigateTest={() => navigateTo('test')}
       />
       
       <div className="flex-1 flex flex-col min-w-0">
@@ -491,6 +487,11 @@ const App: React.FC = () => {
           {renderView()}
         </main>
       </div>
+
+      <FileViewerModal 
+        file={viewingFile} 
+        onClose={() => setViewingFile(null)} 
+      />
 
       {isProcessing && (
         <div className="fixed inset-0 z-[300] bg-white/50 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center">

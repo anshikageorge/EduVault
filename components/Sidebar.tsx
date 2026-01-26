@@ -10,7 +10,6 @@ interface SidebarProps {
   onNavigateSettings: () => void;
   onNavigateFavorites: () => void;
   onNavigateRecent: () => void;
-  onNavigateTest: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -20,8 +19,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onNavigate, 
   onNavigateSettings, 
   onNavigateFavorites, 
-  onNavigateRecent,
-  onNavigateTest
+  onNavigateRecent
 }) => {
   const navItemClass = (view: ViewState) => 
     `flex items-center gap-3 px-3 py-3 rounded-xl transition-all w-full text-left ${
@@ -74,11 +72,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <span className="text-sm font-semibold">Favorites</span>
               </button>
 
-              <button onClick={onNavigateTest} className={navItemClass('test')}>
-                <span className={`material-symbols-outlined ${currentView === 'test' ? 'icon-filled' : ''}`}>quiz</span>
-                <span className="text-sm font-semibold">Take Test</span>
-              </button>
-              
               <div className="my-4 border-t border-slate-100 dark:border-slate-800" />
               
               <button onClick={onNavigateSettings} className={navItemClass('settings')}>

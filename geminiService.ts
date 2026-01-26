@@ -1,5 +1,6 @@
 
 import { GoogleGenAI, Type, Part } from "@google/genai";
+import { MCQ } from "./types";
 
 /**
  * Initializes a fresh GoogleGenAI instance using the environment API key.
@@ -57,26 +58,24 @@ export async function summarizeChapter(chapterName: string, files: string[]) {
 }
 
 /**
- * Generates multiple-choice questions from educational content.
- * Accepts a multimodal 'Part' which can contain text or binary file data (PDF, Images, etc.).
- * Uses 'gemini-3-pro-preview' for advanced reasoning and high-quality question drafting.
+ * Generates multiple choice questions from a provided file part.
+ * Uses 'gemini-3-pro-preview' for complex reasoning and content extraction.
  */
-export async function generateMCQs(filePart: Part, fileName: string, count: number = 5) {
+export async function generateMCQs(filePart: Part, fileName: string, questionCount: number): Promise<MCQ[]> {
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
-      contents: [{
+      contents: {
         parts: [
           filePart,
           {
-            text: `Generate a high-quality study test based on the attached material "${fileName}".
-            Provide exactly ${count} multiple-choice questions. 
-            Each question must have 4 options and include a detailed explanation for the correct answer.
-            Ensure the questions cover the core concepts presented in the material.`
+            text: `Based on the provided document "${fileName}", generate exactly ${questionCount} multiple-choice questions (MCQs) to test student knowledge. 
+            Each question must have exactly 4 options, a zero-based index for the correct answer, and a helpful explanation. 
+            Return the result as a JSON array of objects with keys: question, options, correctAnswer, explanation.`
           }
         ]
-      }],
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -85,16 +84,11 @@ export async function generateMCQs(filePart: Part, fileName: string, count: numb
             type: Type.OBJECT,
             properties: {
               question: { type: Type.STRING },
-              options: { 
-                type: Type.ARRAY, 
-                items: { type: Type.STRING },
-                minItems: 4,
-                maxItems: 4
+              options: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
               },
-              correctAnswer: { 
-                type: Type.INTEGER, 
-                description: "Zero-based index of the correct option." 
-              },
+              correctAnswer: { type: Type.INTEGER },
               explanation: { type: Type.STRING }
             },
             required: ["question", "options", "correctAnswer", "explanation"]
@@ -104,10 +98,10 @@ export async function generateMCQs(filePart: Part, fileName: string, count: numb
     });
 
     const text = response.text;
-    if (!text) throw new Error("Empty response from AI");
+    if (!text) return [];
     return JSON.parse(text);
   } catch (error) {
-    console.error("Gemini AI test generation error:", error);
-    return null;
+    console.error("Gemini AI MCQ generation error:", error);
+    return [];
   }
 }
