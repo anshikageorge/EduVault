@@ -234,234 +234,131 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       await api.deleteFile(id);
-      
-      // Update local sets
       setFiles(prev => prev.filter(f => f.id !== id));
       setAllFiles(prev => prev.filter(f => f.id !== id));
-      
-      // Update chapter counts for immediate reflection in subject view
       setChapters(prev => prev.map(c => 
         c.id === fileToDelete.chapterId 
           ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - 1) } 
           : c
       ));
-      
-      addNotification('File deleted', 'success');
+      addNotification('Material deleted', 'success');
     } catch (err) {
-      addNotification('Failed to delete file', 'error');
+      console.error("Delete error", err);
+      addNotification('Failed to delete material', 'error');
     } finally {
       setIsProcessing(false);
     }
   };
 
+  // Fixed truncated handleDeleteFiles function
   const handleDeleteFiles = async (ids: string[]) => {
-    const filesToDelete = allFiles.filter(f => ids.includes(f.id));
-    if (filesToDelete.length === 0) return;
+    if (!ids || ids.length === 0) return;
 
     setIsProcessing(true);
     try {
       await api.deleteFiles(ids);
       
-      // Update local sets
-      setFiles(prev => prev.filter(f => !ids.includes(f.id)));
-      setAllFiles(prev => prev.filter(f => !ids.includes(f.id)));
-      
-      // Compute reduction per chapter
+      const affectedFiles = allFiles.filter(f => ids.includes(f.id));
       const reductionMap: Record<string, number> = {};
-      filesToDelete.forEach(f => {
+      affectedFiles.forEach(f => {
         reductionMap[f.chapterId] = (reductionMap[f.chapterId] || 0) + 1;
       });
 
-      // Update chapter counts
+      setFiles(prev => prev.filter(f => !ids.includes(f.id)));
+      setAllFiles(prev => prev.filter(f => !ids.includes(f.id)));
+      
       setChapters(prev => prev.map(c => {
         const reduction = reductionMap[c.id] || 0;
         return reduction > 0 ? { ...c, fileCount: Math.max(0, (c.fileCount || 0) - reduction) } : c;
       }));
 
-      addNotification(`${ids.length} files deleted`, 'success');
+      addNotification(`${ids.length} materials deleted`, 'success');
     } catch (err) {
-      addNotification('Failed to delete files', 'error');
+      console.error("Bulk delete error", err);
+      addNotification('Failed to delete materials', 'error');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleDeleteSubject = async (id: string) => {
-    setIsProcessing(true);
-    try {
-      await api.deleteSubject(id);
-      setSubjects(prev => prev.filter(s => s.id !== id));
-      
-      // Clear out deleted files from state
-      const updatedFiles = await api.getAllFiles();
-      setAllFiles(updatedFiles);
-      
-      addNotification('Subject deleted', 'success');
-      if (currentView === 'subject' && selectedSubject?.id === id) {
-        navigateTo('dashboard');
+  const handleRenameFile = async (id: string) => {
+    const file = allFiles.find(f => f.id === id);
+    if (!file) return;
+    const newName = window.prompt('Enter new file name:', file.name);
+    if (newName && newName !== file.name) {
+      try {
+        const updated = await api.updateFile(id, { name: newName });
+        setFiles(prev => prev.map(f => f.id === id ? updated : f));
+        setAllFiles(prev => prev.map(f => f.id === id ? updated : f));
+        addNotification('File renamed');
+      } catch (err) {
+        addNotification('Failed to rename', 'error');
       }
-    } catch (err) {
-      addNotification('Failed to delete subject', 'error');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleDeleteChapter = async (id: string) => {
-    setIsProcessing(true);
-    try {
-      await api.deleteChapter(id);
-      
-      // Update local chapters
-      setChapters(prev => prev.filter(c => c.id !== id));
-      
-      // Clear out orphaned files from state
-      setAllFiles(prev => prev.filter(f => f.chapterId !== id));
-      setFiles(prev => prev.filter(f => f.chapterId !== id));
-      
-      addNotification('Chapter deleted', 'success');
-    } catch (err) {
-      addNotification('Failed to delete chapter', 'error');
-    } finally {
-      setIsProcessing(false);
     }
   };
 
   const filteredSubjects = useMemo(() => {
-    if (!searchQuery) return subjects;
     return subjects.filter(s => 
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       s.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [subjects, searchQuery]);
 
-  const dummySubject: Subject = {
-    id: 'meta',
-    name: 'Collection',
-    description: 'Your gathered materials',
-    icon: 'folder_special',
-    colorClass: 'bg-primary/10 text-primary',
-    fileCount: 0,
-    lastUpdated: 'Just now'
-  };
-
-  const dummyFavoritesChapter: Chapter = {
-    id: 'favs',
-    subjectId: 'meta',
-    name: 'Favorites',
-    chapterNumber: 0,
-    icon: 'star',
-    colorClass: 'bg-amber-50 text-amber-600',
-    fileCount: 0,
-    lastUpdated: 'Just now'
-  };
-
-  const dummyRecentChapter: Chapter = {
-    id: 'recent',
-    subjectId: 'meta',
-    name: 'Recently Viewed',
-    chapterNumber: 0,
-    icon: 'schedule',
-    colorClass: 'bg-blue-50 text-blue-600',
-    fileCount: 0,
-    lastUpdated: 'Just now'
-  };
-
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
         return (
           <DashboardView 
-            subjects={filteredSubjects} 
+            subjects={filteredSubjects}
             onSelectSubject={handleSelectSubject}
             onAddSubject={handleAddSubject}
-            onDeleteSubject={handleDeleteSubject}
+            onDeleteSubject={async (id) => {
+              await api.deleteSubject(id);
+              setSubjects(prev => prev.filter(s => s.id !== id));
+              addNotification('Subject deleted');
+            }}
             onEditSubject={async (id, data) => {
               const updated = await api.updateSubject(id, data);
               setSubjects(prev => prev.map(s => s.id === id ? updated : s));
-              addNotification('Subject updated', 'success');
+              addNotification('Subject updated');
             }}
           />
         );
       case 'subject':
         return selectedSubject && (
           <SubjectDetailView 
-            subject={selectedSubject} 
-            chapters={chapters} 
+            subject={selectedSubject}
+            chapters={chapters}
             onBack={() => navigateTo('dashboard')}
             onSelectChapter={handleSelectChapter}
             onAddChapter={handleAddChapter}
-            onDeleteChapter={handleDeleteChapter}
+            onDeleteChapter={async (id) => {
+              await api.deleteChapter(id);
+              setChapters(prev => prev.filter(c => c.id !== id));
+              addNotification('Chapter deleted');
+            }}
             onEditChapter={async (id, data) => {
-              setIsProcessing(true);
-              try {
-                const updated = await api.updateChapter(id, data);
-                setChapters(prev => prev.map(c => c.id === id ? updated : c));
-                addNotification('Chapter updated', 'success');
-              } catch (err) {
-                addNotification('Failed to update chapter', 'error');
-              } finally {
-                setIsProcessing(false);
-              }
+              const updated = await api.updateChapter(id, data);
+              setChapters(prev => prev.map(c => c.id === id ? updated : c));
+              addNotification('Chapter updated');
             }}
           />
         );
       case 'chapter':
+        const filteredChapterFiles = files.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
         return selectedSubject && selectedChapter && (
           <ChapterDetailView 
-            viewMode={currentView}
-            subject={selectedSubject} 
-            chapter={selectedChapter} 
-            files={files}
-            onBack={() => handleSelectSubject(selectedSubject)}
+            viewMode="chapter"
+            subject={selectedSubject}
+            chapter={selectedChapter}
+            files={filteredChapterFiles}
+            onBack={() => navigateTo('subject', selectedSubject)}
             onToggleFavorite={handleToggleFavorite}
             onOpenFile={handleOpenFile}
             onAddFiles={handleAddFiles}
-            onDeleteFile={(id) => {
-              if (window.confirm('Delete this file permanently?')) {
-                handleDeleteFile(id);
-              }
-            }}
+            onDeleteFile={handleDeleteFile}
             onDeleteFiles={handleDeleteFiles}
-          />
-        );
-      case 'favorites':
-        return (
-          <ChapterDetailView 
-            viewMode="favorites"
-            subject={dummySubject} 
-            chapter={dummyFavoritesChapter} 
-            files={allFiles.filter(f => f.isFavorite)}
-            onBack={() => navigateTo('dashboard')}
-            onToggleFavorite={handleToggleFavorite}
-            onOpenFile={handleOpenFile}
-            onDeleteFile={(id) => {
-              if (window.confirm('Delete this file permanently?')) {
-                handleDeleteFile(id);
-              }
-            }}
-            onDeleteFiles={handleDeleteFiles}
-          />
-        );
-      case 'recent':
-        const recents = recentFileIds
-          .map(id => allFiles.find(f => f.id === id))
-          .filter((f): f is FileItem => !!f);
-        return (
-          <ChapterDetailView 
-            viewMode="recent"
-            subject={dummySubject} 
-            chapter={dummyRecentChapter} 
-            files={recents}
-            onBack={() => navigateTo('dashboard')}
-            onToggleFavorite={handleToggleFavorite}
-            onOpenFile={handleOpenFile}
-            onDeleteFile={(id) => {
-              if (window.confirm('Delete this file permanently?')) {
-                handleDeleteFile(id);
-              }
-            }}
-            onDeleteFiles={handleDeleteFiles}
+            onRenameFile={handleRenameFile}
           />
         );
       case 'settings':
@@ -470,7 +367,7 @@ const App: React.FC = () => {
             isDarkMode={isDarkMode}
             onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
             onClearData={() => {
-              if (window.confirm('This will wipe all local data. Continue?')) {
+              if (window.confirm('Are you sure you want to clear all data?')) {
                 localStorage.clear();
                 window.location.reload();
               }
@@ -478,15 +375,45 @@ const App: React.FC = () => {
             totalFiles={allFiles.length}
           />
         );
+      case 'favorites':
+      case 'recent':
+        const metaFiles = (currentView === 'favorites' 
+          ? allFiles.filter(f => f.isFavorite)
+          : allFiles.filter(f => recentFileIds.includes(f.id)).sort((a,b) => recentFileIds.indexOf(a.id) - recentFileIds.indexOf(b.id))
+        ).filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        return (
+          <ChapterDetailView 
+            viewMode={currentView}
+            subject={{ id: 'meta', name: 'Curriculum', description: '', icon: '', colorClass: '', fileCount: 0, lastUpdated: '' }}
+            chapter={{ 
+              id: 'meta', 
+              subjectId: 'meta', 
+              name: currentView === 'favorites' ? 'Starred Materials' : 'Recent Activity', 
+              chapterNumber: 0, 
+              icon: currentView === 'favorites' ? 'star' : 'schedule', 
+              colorClass: '', 
+              fileCount: metaFiles.length, 
+              lastUpdated: '' 
+            }}
+            files={metaFiles}
+            onBack={() => navigateTo('dashboard')}
+            onToggleFavorite={handleToggleFavorite}
+            onOpenFile={handleOpenFile}
+            onDeleteFile={handleDeleteFile}
+            onDeleteFiles={handleDeleteFiles}
+            onRenameFile={handleRenameFile}
+          />
+        );
       default:
         return null;
     }
   };
 
+  if (isInitialLoading) return <LoadingView />;
+
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-[#101922] overflow-hidden">
-      {isInitialLoading && <LoadingView />}
-      
+    <div className="flex min-h-screen bg-slate-50 dark:bg-[#101922] transition-colors duration-300">
       <Sidebar 
         currentView={currentView} 
         isOpen={isSidebarOpen}
@@ -496,7 +423,6 @@ const App: React.FC = () => {
         onNavigateFavorites={() => navigateTo('favorites')}
         onNavigateRecent={() => navigateTo('recent')}
       />
-      
       <div className="flex-1 flex flex-col min-w-0">
         <Navbar 
           searchQuery={searchQuery}
@@ -509,24 +435,25 @@ const App: React.FC = () => {
           canGoBack={historyIndex > 0}
           canGoForward={historyIndex < history.length - 1}
         />
-        
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar relative">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
           {renderView()}
         </main>
       </div>
-
       <FileViewerModal 
-        file={viewingFile} 
-        onClose={() => setViewingFile(null)} 
+        file={viewingFile}
+        onClose={() => setViewingFile(null)}
       />
-
       {isProcessing && (
-        <div className="fixed inset-0 z-[300] bg-white/50 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center">
-          <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <div className="fixed inset-0 z-[200] bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center">
+          <div className="bg-white dark:bg-[#1a2632] p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
+            <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm font-bold text-slate-900 dark:text-white">Processing...</p>
+          </div>
         </div>
       )}
     </div>
   );
 };
 
+// Fixed the missing default export reported in index.tsx
 export default App;
