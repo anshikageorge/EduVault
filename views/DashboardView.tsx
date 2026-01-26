@@ -115,13 +115,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 group-hover:text-primary transition-colors">{subject.name}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 line-clamp-2 h-10">{subject.description}</p>
-            <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider">
-                <span className="material-symbols-outlined text-[16px] text-slate-400">folder_open</span>
-                <span>{subject.fileCount} Files</span>
-              </div>
-              <span className="text-slate-400 italic">Updated {subject.lastUpdated}</span>
-            </div>
           </div>
         ))}
 

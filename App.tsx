@@ -48,10 +48,8 @@ const App: React.FC = () => {
     return false;
   });
 
-  const [recentFileIds, setRecentFileIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('ev_recent_ids');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Recent files now stored temporarily in memory (cleared on refresh) with a limit of 5
+  const [recentFileIds, setRecentFileIds] = useState<string[]>([]);
 
   // Unified Navigation Function
   const navigateTo = useCallback((view: ViewState, subject: Subject | null = null, chapter: Chapter | null = null, isFromHistory = false) => {
@@ -117,10 +115,6 @@ const App: React.FC = () => {
       localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
-
-  useEffect(() => {
-    localStorage.setItem('ev_recent_ids', JSON.stringify(recentFileIds));
-  }, [recentFileIds]);
 
   const addNotification = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
     const newNotif: AppNotification = {
@@ -222,7 +216,8 @@ const App: React.FC = () => {
   const handleOpenFile = (file: FileItem) => {
     setRecentFileIds(prev => {
       const filtered = prev.filter(id => id !== file.id);
-      return [file.id, ...filtered].slice(0, 20);
+      // Maintained only the last 5 files opened in FIFO memory
+      return [file.id, ...filtered].slice(0, 5);
     });
     setViewingFile(file);
   };
@@ -250,7 +245,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Fixed truncated handleDeleteFiles function
   const handleDeleteFiles = async (ids: string[]) => {
     if (!ids || ids.length === 0) return;
 
@@ -455,5 +449,4 @@ const App: React.FC = () => {
   );
 };
 
-// Fixed the missing default export reported in index.tsx
 export default App;
