@@ -39,6 +39,7 @@ export interface FileItem {
   size: string;
   isFavorite?: boolean;
   url?: string;
+  content?: string; // Base64 encoded content for persistence
 }
 
 export interface AppNotification {

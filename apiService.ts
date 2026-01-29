@@ -5,6 +5,16 @@ const LATENCY = 400;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper to convert File to Base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
 // Simulated Database helper
 const getDB = (key: string, initial: any) => {
   const data = localStorage.getItem(key);
@@ -12,7 +22,12 @@ const getDB = (key: string, initial: any) => {
 };
 
 const setDB = (key: string, data: any) => {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error("Storage limit reached. Try clearing data in settings.", e);
+    alert("Storage limit reached! LocalStorage only supports ~5MB. Try clearing older files in settings.");
+  }
 };
 
 export const api = {
@@ -113,7 +128,9 @@ export const api = {
     else if (['mp4', 'mov', 'webm', 'avi'].includes(ext || '')) type = 'video';
     else if (ext === 'txt') type = 'txt';
 
-    const tempUrl = URL.createObjectURL(file);
+    // Store content as Base64 for persistent access
+    const content = await fileToBase64(file);
+    
     const newFile: FileItem = {
       id: Math.random().toString(36).substr(2, 9),
       chapterId,
@@ -122,8 +139,10 @@ export const api = {
       dateAdded: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
       isFavorite: false,
-      url: tempUrl
+      url: content, // We use the data URL directly as the primary source
+      content: content 
     };
+    
     setDB('ev_files', [newFile, ...files]);
 
     const chapters = getDB('ev_chapters', []);

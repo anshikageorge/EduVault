@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FileItem } from '../types';
 
 interface FileViewerModalProps {
@@ -10,15 +10,46 @@ interface FileViewerModalProps {
 const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
   const [hasError, setHasError] = useState(false);
 
+  // Memoize the blob URL to avoid regeneration on every render
+  const liveUrl = useMemo(() => {
+    if (!file || !file.url) return null;
+    
+    // If it's already a blob or remote, return it
+    if (file.url.startsWith('blob:') || file.url.startsWith('http')) return file.url;
+    
+    // If it's a data URL (Base64), it works directly for small files,
+    // but for PDFs it's safer to convert to a Blob to bypass some Chrome restrictions.
+    if (file.url.startsWith('data:')) {
+      try {
+        const parts = file.url.split(',');
+        const mime = parts[0].match(/:(.*?);/)?.[1];
+        const b64 = parts[1];
+        const bin = atob(b64);
+        let n = bin.length;
+        const u8a = new Uint8Array(n);
+        while(n--) u8a[n] = bin.charCodeAt(n);
+        return URL.createObjectURL(new Blob([u8a], { type: mime }));
+      } catch (e) {
+        console.error("Failed to convert data URL to Blob", e);
+        return file.url;
+      }
+    }
+    
+    return file.url;
+  }, [file]);
+
   if (!file) return null;
 
-  // Determine if the URL is likely a live blob or a real external URL
-  const isBlob = !!file.url && file.url.startsWith('blob:');
-  const isRemote = !!file.url && file.url.startsWith('http');
-
   const handleOpenNewTab = () => {
-    if (file.url) {
-      window.open(file.url, '_blank');
+    if (liveUrl) {
+      // Chrome often blocks window.open(dataUrl). Using a physical link click is more reliable.
+      const link = document.createElement('a');
+      link.href = liveUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -42,7 +73,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
               Open in New Tab
             </button>
             <a
-              href={file.url}
+              href={liveUrl || '#'}
               download={file.name}
               className="px-6 py-3 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
             >
@@ -54,7 +85,8 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
       );
     }
 
-    // For Word and PowerPoint, we can use the Google Docs Viewer for remote files
+    // For Word and PowerPoint, we can use the Google Docs Viewer only for remote files
+    const isRemote = !!file.url && file.url.startsWith('http');
     if (isRemote && (file.type === 'pptx' || file.type === 'docx')) {
       const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(file.url!)}&embedded=true`;
       return (
@@ -71,11 +103,10 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
 
     switch (file.type) {
       case 'pdf':
-        // Object tag is often more reliable than iframe for PDFs in Chrome
         return (
           <div className="w-full h-full bg-white rounded-xl overflow-hidden shadow-inner">
             <object
-              data={isBlob ? file.url : `${file.url}#toolbar=0&navpanes=0`}
+              data={liveUrl || undefined}
               type="application/pdf"
               className="w-full h-full"
               onError={() => setHasError(true)}
@@ -83,7 +114,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
               <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-900">
                 <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">picture_as_pdf</span>
                 <h3 className="text-lg font-bold mb-2">PDF Viewer Issue</h3>
-                <p className="text-sm text-slate-500 mb-6">Your browser cannot render this PDF inline.</p>
+                <p className="text-sm text-slate-500 mb-6">Your browser cannot render this PDF inline. This often happens with large local files.</p>
                 <button 
                   onClick={handleOpenNewTab}
                   className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-blue-600 transition-all"
@@ -101,7 +132,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
               controls
               autoPlay
               className="max-w-full max-h-full"
-              src={file.url}
+              src={liveUrl || undefined}
               onError={() => setHasError(true)}
             >
               Your browser does not support the video tag.
@@ -112,7 +143,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
         return (
           <div className="flex items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-900 rounded-xl overflow-hidden p-4">
             <img
-              src={file.url}
+              src={liveUrl || undefined}
               alt={file.name}
               className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
               onError={() => setHasError(true)}
@@ -125,11 +156,9 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
             <p className="whitespace-pre-wrap leading-relaxed">
               --- START OF {file.name.toUpperCase()} ---
               {"\n\n"}
-              {/* In a real app, we would fetch the text content here */}
-              This is a text preview for your uploaded file.
+              This is a preview for your file.
               {"\n\n"}
-              Note: For local .txt files, browsers typically allow viewing them. 
-              If the content isn't visible, please use the "Open in New Tab" button.
+              Due to browser security policies for local content, if the file content is not rendered, please use the "Full Screen" or "Download" buttons below to access your data.
             </p>
           </div>
         );
@@ -156,7 +185,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
                 Open to View
               </button>
               <a
-                href={file.url}
+                href={liveUrl || '#'}
                 download={file.name}
                 className="w-full px-8 py-4 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-3"
               >
@@ -221,9 +250,9 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose }) => {
              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">EduVault Safe Viewer</p>
           </div>
           <div className="flex gap-3 w-full sm:w-auto">
-            {file.url && (
+            {liveUrl && (
               <a
-                href={file.url}
+                href={liveUrl}
                 download={file.name}
                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-primary/20 active:scale-95"
               >
